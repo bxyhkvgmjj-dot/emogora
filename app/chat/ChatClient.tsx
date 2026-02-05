@@ -139,7 +139,10 @@ export default function ChatClient({ mode }: ChatClientProps) {
   const [notes, setNotes] = useState<NoteItem[]>([]);
 
   const chatRef = useRef<HTMLDivElement | null>(null);
-  const inputRef = useRef<HTMLInputElement | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // ✅ Mobile drawer for chats
+  const [showChats, setShowChats] = useState(false);
 
   const MEMORY_KEY = `emogora_memory_${space}`;
   const SUMMARY_EVERY = 10;
@@ -180,6 +183,16 @@ export default function ChatClient({ mode }: ChatClientProps) {
       if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
     };
   }, []);
+
+  // ✅ Prevent background scroll while drawer open (iPhone-friendly)
+  useEffect(() => {
+    if (!showChats) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [showChats]);
 
   // -------------------------
   // Logout
@@ -307,6 +320,7 @@ export default function ChatClient({ mode }: ChatClientProps) {
   // New chat
   // -------------------------
   const startNewChat = () => {
+    setShowChats(false);
     setConversationId(null);
     setMessages([]);
     setIsLoadingHistory(false);
@@ -512,10 +526,9 @@ export default function ChatClient({ mode }: ChatClientProps) {
 
   const deleteMessageById = async (id: string) => {
     try {
-      const res = await fetch(
-        `/api/message?mode=${encodeURIComponent(space)}&id=${encodeURIComponent(id)}`,
-        { method: "DELETE" }
-      );
+      const res = await fetch(`/api/message?mode=${encodeURIComponent(space)}&id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
 
       if (res.status === 401) {
         window.location.href = "/login";
@@ -599,14 +612,10 @@ export default function ChatClient({ mode }: ChatClientProps) {
       const data: { reply?: string } = await res.json();
       const fullReply = data.reply ?? "Let’s try again.";
 
-      // IMPORTANT: clear typing state and stream
       streamAiReply(fullReply);
 
+      // ✅ Keep UI stable on iPhone: only refresh list, don’t reload conversation right away
       window.setTimeout(() => void refreshConversations(), 250);
-
-      window.setTimeout(() => {
-        if (convId) void loadConversation(convId);
-      }, 650);
 
       void maybeUpdateMemory([...messages, { role: "ai", text: fullReply, id: lastAi?.id }]);
     } catch (e) {
@@ -641,6 +650,14 @@ export default function ChatClient({ mode }: ChatClientProps) {
     setIsTyping(true);
     setChatError(null);
 
+    // reset textarea height on mobile
+    window.setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.style.height = "0px";
+        inputRef.current.style.height = `${Math.min(inputRef.current.scrollHeight, 180)}px`;
+      }
+    }, 0);
+
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
@@ -665,17 +682,17 @@ export default function ChatClient({ mode }: ChatClientProps) {
 
       streamAiReply(fullReply);
 
+      // ✅ Keep UI stable on iPhone: only refresh list, don’t reload conversation right away
       window.setTimeout(() => void refreshConversations(), 250);
-
-      window.setTimeout(() => {
-        if (convId) void loadConversation(convId);
-      }, 650);
 
       void maybeUpdateMemory([...newMessages, { role: "ai", text: fullReply }]);
     } catch (error) {
       console.error("Error talking to Emogora API:", error);
       setIsTyping(false);
-      setMessages((prev) => [...prev, { role: "ai", text: "Hmm — something went wrong on my side. Can you try again?" }]);
+      setMessages((prev) => [
+        ...prev,
+        { role: "ai", text: "Hmm — something went wrong on my side. Can you try again?" },
+      ]);
       setChatError("Message failed to send. Please try again.");
     }
   };
@@ -717,9 +734,6 @@ export default function ChatClient({ mode }: ChatClientProps) {
 
   // -------------------------
   // Mode-specific tool buttons (your spec)
-  // Feel: regenerate, shorter, Deep dive, more_empathetic
-  // Plan: regenerate, shorter, Deep dive
-  // Grow: regenerate, shorter, Deep dive
   // -------------------------
   const refineButtons = useMemo(() => {
     const base = [
@@ -756,10 +770,20 @@ export default function ChatClient({ mode }: ChatClientProps) {
   }, [space]);
 
   // -------------------------
+  // Mobile textarea auto-grow
+  // -------------------------
+  const autoGrow = () => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "0px";
+    el.style.height = `${Math.min(el.scrollHeight, 180)}px`; // cap height
+  };
+
+  // -------------------------
   // RENDER
   // -------------------------
   return (
-    <div className="relative min-h-screen bg-[#fdf7ff] overflow-hidden">
+    <div className="relative min-h-[100dvh] bg-[#fdf7ff] overflow-hidden">
       <div className="pointer-events-none fixed inset-0 opacity-95 bg-[radial-gradient(circle_at_top,_rgba(244,114,182,0.16),_transparent_55%),radial-gradient(circle_at_bottom,_rgba(56,189,248,0.12),_transparent_55%),radial-gradient(circle_at_0%_100%,rgba(248,239,223,0.9),_transparent_55%)]" />
 
       {/* toast */}
@@ -821,7 +845,10 @@ export default function ChatClient({ mode }: ChatClientProps) {
                           onClick={() => {
                             setInput((prev) => (prev ? `${prev}\n\n${n.content}` : n.content));
                             setNotesOpen(false);
-                            window.setTimeout(() => inputRef.current?.focus(), 50);
+                            window.setTimeout(() => {
+                              inputRef.current?.focus();
+                              autoGrow();
+                            }, 50);
                           }}
                           className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
                         >
@@ -836,9 +863,138 @@ export default function ChatClient({ mode }: ChatClientProps) {
         </div>
       )}
 
+      {/* ✅ MOBILE CHATS DRAWER */}
+      {showChats && (
+        <div className="fixed inset-0 z-[100] md:hidden">
+          <button
+            type="button"
+            onClick={() => setShowChats(false)}
+            className="absolute inset-0 bg-black/30"
+            aria-label="Close chats drawer"
+          />
+
+          <div className="absolute inset-y-0 left-0 w-[88%] max-w-sm bg-white shadow-2xl">
+            <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+              <div className="font-semibold text-slate-900">Chats</div>
+              <button
+                onClick={() => setShowChats(false)}
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-700"
+                type="button"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="p-3 space-y-2 border-b border-slate-100">
+              <button
+                type="button"
+                className="w-full rounded-2xl bg-gradient-to-r from-fuchsia-500 to-violet-500 px-4 py-3 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(217,70,239,0.25)]"
+                onClick={startNewChat}
+              >
+                + New chat
+              </button>
+
+              <div className="grid grid-cols-2 gap-2">
+                <a
+                  href="/"
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition"
+                >
+                  ← Home
+                </a>
+                <button
+                  onClick={logout}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition"
+                >
+                  ⎋ Logout
+                </button>
+              </div>
+            </div>
+
+            <div className="px-3 py-3 overflow-y-auto h-[calc(100%-166px)]">
+              {conversations.length === 0 && isLoadingConversations ? (
+                <div className="text-sm text-slate-500 px-2 py-2">Loading…</div>
+              ) : conversations.length === 0 ? (
+                <div className="text-sm text-slate-500 px-2 py-2">No previous chats yet.</div>
+              ) : (
+                <div className="space-y-4">
+                  {(["Today", "Yesterday", "Earlier"] as const).map((section) => {
+                    const list = grouped[section] ?? [];
+                    if (list.length === 0) return null;
+
+                    return (
+                      <div key={section} className="space-y-2">
+                        <div className="px-2 text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                          {section}
+                        </div>
+
+                        <div className="space-y-2">
+                          {list.map((c) => {
+                            const active = c.id === conversationId;
+                            const titleText = c.title?.trim() || c.preview?.trim() || "Conversation";
+
+                            return (
+                              <div
+                                key={c.id}
+                                className={classNames(
+                                  "group relative w-full rounded-2xl border shadow-sm overflow-hidden transition",
+                                  active
+                                    ? "border-fuchsia-200 bg-fuchsia-50/60"
+                                    : "border-slate-200 bg-white hover:bg-slate-50"
+                                )}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setShowChats(false);
+                                    void loadConversation(c.id);
+                                  }}
+                                  className="w-full text-left px-3 py-2"
+                                >
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="text-[12px] font-semibold text-slate-900 line-clamp-2">
+                                      {titleText}
+                                    </div>
+                                    {active && (
+                                      <span className="shrink-0 rounded-full border border-fuchsia-200 bg-white/70 px-2 py-0.5 text-[10px] font-medium text-fuchsia-700">
+                                        Active
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="mt-1 text-[11px] text-slate-600 line-clamp-2">{c.preview || "—"}</div>
+                                  <div className="mt-1 text-[11px] text-slate-500">{new Date(c.date).toLocaleString()}</div>
+                                </button>
+
+                                <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      void deleteConversation(c.id);
+                                    }}
+                                    className="rounded-full border border-slate-200 bg-white/85 px-2 py-1 text-[11px] text-slate-600 hover:bg-white shadow-sm"
+                                    title="Delete conversation"
+                                  >
+                                    🗑️
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="relative z-10 mx-auto max-w-[1100px] px-3 sm:px-6 py-6">
         <div className="grid grid-cols-1 md:grid-cols-[300px_1fr] gap-4">
-          {/* SIDEBAR */}
+          {/* SIDEBAR (desktop only) */}
           <aside className="hidden md:flex flex-col rounded-[28px] bg-white/90 backdrop-blur-xl border border-slate-100 shadow-[0_18px_50px_rgba(148,163,184,0.28)] overflow-hidden">
             <div className="p-4 border-b border-slate-100 bg-gradient-to-r from-white/90 via-white to-rose-50/60">
               <div className="flex items-center justify-between gap-3">
@@ -953,11 +1109,23 @@ export default function ChatClient({ mode }: ChatClientProps) {
           </aside>
 
           {/* MAIN CHAT */}
-          <main className="relative rounded-[32px] bg-white/90 backdrop-blur-xl border border-slate-100 shadow-[0_22px_60px_rgba(148,163,184,0.35)] flex flex-col overflow-hidden">
+          <main className="relative rounded-[32px] bg-white/90 backdrop-blur-xl border border-slate-100 shadow-[0_22px_60px_rgba(148,163,184,0.35)] flex flex-col overflow-hidden min-h-[calc(100dvh-64px)]">
             <div className="p-4 sm:p-5 border-b border-slate-100 bg-gradient-to-r from-white/90 via-white to-rose-50/60">
               <div className="flex items-start justify-between gap-3">
                 <div className="space-y-1">
                   <div className="text-xs tracking-wide uppercase text-slate-500">{modeMeta.chip}</div>
+
+                  {/* ✅ Mobile: Chats button */}
+                  <div className="md:hidden mt-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowChats(true)}
+                      className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white/90 px-3 py-2 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50 transition"
+                    >
+                      ☰ Chats
+                    </button>
+                  </div>
+
                   <div className="text-lg font-semibold text-slate-900 flex items-center gap-2">
                     <span>{modeMeta.emoji}</span>
                     <span>{modeMeta.title}</span>
@@ -999,7 +1167,10 @@ export default function ChatClient({ mode }: ChatClientProps) {
                         key={s}
                         onClick={() => {
                           setInput(s.replace(/^[^\w]+?\s*/, ""));
-                          window.setTimeout(() => inputRef.current?.focus(), 50);
+                          window.setTimeout(() => {
+                            inputRef.current?.focus();
+                            autoGrow();
+                          }, 50);
                         }}
                         className="rounded-full border border-fuchsia-200 bg-white/70 px-3 py-1.5 text-xs text-fuchsia-700 hover:bg-white transition"
                       >
@@ -1112,10 +1283,7 @@ export default function ChatClient({ mode }: ChatClientProps) {
                                   key={b.key}
                                   type="button"
                                   onClick={() => improveLast(b.key)}
-                                  className={classNames(
-                                    "rounded-2xl px-3 py-2 text-xs font-medium transition",
-                                    b.className
-                                  )}
+                                  className={classNames("rounded-2xl px-3 py-2 text-xs font-medium transition", b.className)}
                                 >
                                   {b.label}
                                 </button>
@@ -1130,7 +1298,10 @@ export default function ChatClient({ mode }: ChatClientProps) {
                                 key={s}
                                 onClick={() => {
                                   setInput(s.replace(/^[^\w]+?\s*/, ""));
-                                  window.setTimeout(() => inputRef.current?.focus(), 50);
+                                  window.setTimeout(() => {
+                                    inputRef.current?.focus();
+                                    autoGrow();
+                                  }, 50);
                                 }}
                                 className="rounded-full border border-fuchsia-200 bg-white/60 px-4 py-2 text-xs text-fuchsia-700 hover:bg-white transition"
                               >
@@ -1156,22 +1327,34 @@ export default function ChatClient({ mode }: ChatClientProps) {
             </div>
 
             {/* INPUT */}
-            <div className="p-4 sm:p-5 border-t border-slate-100 bg-white/80 backdrop-blur-xl">
+            <div className="p-4 sm:p-5 border-t border-slate-100 bg-white/80 backdrop-blur-xl pb-[max(env(safe-area-inset-bottom),12px)]">
               <div className="flex items-end gap-2">
                 <div className="flex-1 rounded-3xl border border-slate-200 bg-white/90 shadow-sm focus-within:ring-2 focus-within:ring-fuchsia-200 focus-within:border-fuchsia-200 transition">
-                  <input
+                  {/* ✅ textarea fixes “tiny typing space” on iPhone + shows what you type */}
+                  <textarea
                     ref={inputRef}
                     value={input}
-                    onChange={(e) => setInput(e.target.value)}
+                    onChange={(e) => {
+                      setInput(e.target.value);
+                      autoGrow();
+                    }}
+                    onFocus={() => {
+                      // iOS: make sure input stays visible when keyboard opens
+                      window.setTimeout(() => {
+                        inputRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+                      }, 50);
+                    }}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter") {
+                      if (e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault();
                         sendMessage();
                       }
                     }}
-                    placeholder="Type your message…"
-                    className="w-full bg-transparent px-5 py-4 text-[15px] leading-relaxed outline-none placeholder:text-slate-400"
+                    placeholder="Type your message… (Enter to send, Shift+Enter new line)"
+                    rows={1}
+                    className="w-full resize-none bg-transparent px-5 py-4 text-[15px] leading-relaxed outline-none placeholder:text-slate-400"
                     disabled={isTyping || isLoadingHistory}
+                    style={{ height: "56px", maxHeight: 180, overflowY: "auto" }}
                   />
                 </div>
 
