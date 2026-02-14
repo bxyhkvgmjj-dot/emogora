@@ -653,7 +653,6 @@ export default function ChatClient({ mode }: ChatClientProps) {
       const data: { reply?: string } = await res.json();
       const fullReply = data.reply ?? "Let’s try again.";
 
-      // Stream ONLY (no reload) => avoids “wipe” on some iPhones
       streamAiReply(fullReply);
 
       window.setTimeout(() => void refreshConversations(), 250);
@@ -715,14 +714,26 @@ export default function ChatClient({ mode }: ChatClientProps) {
         className:
           "bg-gradient-to-r from-fuchsia-500 to-violet-500 text-white hover:from-fuchsia-400 hover:to-violet-400",
       },
-      { key: "shorter" as const, label: "✂️ Shorter", className: "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50" },
-      { key: "deeper" as const, label: "🧠 Deep dive", className: "border border-fuchsia-200 bg-fuchsia-50/70 text-fuchsia-700 hover:bg-fuchsia-50" },
+      {
+        key: "shorter" as const,
+        label: "✂️ Shorter",
+        className: "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+      },
+      {
+        key: "deeper" as const,
+        label: "🧠 Deep dive",
+        className: "border border-fuchsia-200 bg-fuchsia-50/70 text-fuchsia-700 hover:bg-fuchsia-50",
+      },
     ];
 
     if (space === "feel") {
       return [
         ...base,
-        { key: "more_empathetic" as const, label: "💜 More empathic", className: "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50" },
+        {
+          key: "more_empathetic" as const,
+          label: "💜 More empathic",
+          className: "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+        },
       ];
     }
     return base;
@@ -757,7 +768,9 @@ export default function ChatClient({ mode }: ChatClientProps) {
                         key={c.id}
                         className={classNames(
                           "group relative w-full rounded-2xl border shadow-sm overflow-hidden transition",
-                          active ? "border-fuchsia-200 bg-fuchsia-50/60" : "border-slate-200 bg-white/70 hover:bg-slate-50"
+                          active
+                            ? "border-fuchsia-200 bg-fuchsia-50/60"
+                            : "border-slate-200 bg-white/70 hover:bg-slate-50"
                         )}
                       >
                         {active && (
@@ -771,6 +784,7 @@ export default function ChatClient({ mode }: ChatClientProps) {
                         >
                           <div className="flex items-start justify-between gap-2">
                             <div className="text-[12px] font-semibold text-slate-900 line-clamp-2">{titleText}</div>
+
                             {active && (
                               <span className="shrink-0 rounded-full border border-fuchsia-200 bg-white/70 px-2 py-0.5 text-[10px] font-medium text-fuchsia-700">
                                 Active
@@ -808,21 +822,16 @@ export default function ChatClient({ mode }: ChatClientProps) {
     </div>
   );
 
-  // -------------------------
-  // RENDER
-  // -------------------------
   return (
     <div className="relative min-h-[100dvh] bg-[#fdf7ff] overflow-hidden">
       <div className="pointer-events-none fixed inset-0 opacity-95 bg-[radial-gradient(circle_at_top,_rgba(244,114,182,0.16),_transparent_55%),radial-gradient(circle_at_bottom,_rgba(56,189,248,0.12),_transparent_55%),radial-gradient(circle_at_0%_100%,rgba(248,239,223,0.9),_transparent_55%)]" />
 
-      {/* toast */}
       {toast && (
         <div className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-full border border-slate-200 bg-white/90 px-4 py-2 text-xs text-slate-700 shadow-lg backdrop-blur">
           {toast}
         </div>
       )}
 
-      {/* notes modal */}
       {notesOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/30" onClick={() => setNotesOpen(false)} />
@@ -889,7 +898,6 @@ export default function ChatClient({ mode }: ChatClientProps) {
         </div>
       )}
 
-      {/* Mobile history drawer */}
       {mobileDrawerOpen && (
         <div className="fixed inset-0 z-50 md:hidden">
           <div className="absolute inset-0 bg-black/30" onClick={() => setMobileDrawerOpen(false)} />
@@ -934,7 +942,6 @@ export default function ChatClient({ mode }: ChatClientProps) {
 
       <div className="relative z-10 mx-auto max-w-[1100px] px-3 sm:px-6 py-4 sm:py-6">
         <div className="grid grid-cols-1 md:grid-cols-[300px_1fr] gap-4">
-          {/* SIDEBAR */}
           <aside className="hidden md:flex flex-col rounded-[28px] bg-white/90 backdrop-blur-xl border border-slate-100 shadow-[0_18px_50px_rgba(148,163,184,0.28)] overflow-hidden">
             <div className="p-4 border-b border-slate-100 bg-gradient-to-r from-white/90 via-white to-rose-50/60">
               <div className="flex items-center justify-between gap-3">
@@ -967,9 +974,7 @@ export default function ChatClient({ mode }: ChatClientProps) {
             </div>
           </aside>
 
-          {/* MAIN CHAT */}
           <main className="relative rounded-[32px] bg-white/90 backdrop-blur-xl border border-slate-100 shadow-[0_22px_60px_rgba(148,163,184,0.35)] flex flex-col overflow-hidden min-h-[calc(100dvh-2rem)] md:min-h-0">
-            {/* Top bar */}
             <div className="p-4 sm:p-5 border-b border-slate-100 bg-gradient-to-r from-white/90 via-white to-rose-50/60">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-start gap-3">
@@ -1007,7 +1012,6 @@ export default function ChatClient({ mode }: ChatClientProps) {
               )}
             </div>
 
-            {/* Chat */}
             <div ref={chatRef} className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 space-y-5">
               {isLoadingHistory ? (
                 <div className="text-sm text-slate-500">Loading…</div>
@@ -1063,75 +1067,10 @@ export default function ChatClient({ mode }: ChatClientProps) {
                             </div>
                           )}
                         </div>
-
-                        <div className="absolute -right-2 -top-2 opacity-0 group-hover:opacity-100 transition">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-
-                              if (m.role === "ai") {
-                                void deleteTurnAt(idx);
-                                return;
-                              }
-
-                              const ok = window.confirm("Delete this message?");
-                              if (!ok) return;
-
-                              setMessages((prev) => prev.filter((_, i) => i !== idx));
-                              if (m.id) {
-                                void (async () => {
-                                  await deleteMessageById(m.id!);
-                                  window.setTimeout(() => void refreshConversations(), 200);
-                                })();
-                              }
-                            }}
-                            className="rounded-full border border-slate-200 bg-white/90 px-2.5 py-1.5 text-xs text-slate-700 hover:bg-white shadow-sm"
-                            title={m.role === "ai" ? "Delete this Q+A" : "Delete message"}
-                          >
-                            🗑️
-                          </button>
-                        </div>
                       </div>
 
                       {isLastAi && hasAnyUserMessage && showTools && (
                         <div className={classNames("mr-auto max-w-[96%] sm:max-w-[78%]", "space-y-3")}>
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <div className="flex flex-wrap gap-2">
-                              <button
-                                type="button"
-                                onClick={() => copyToClipboard(m.text)}
-                                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-3 py-1.5 text-xs text-slate-700 hover:bg-white transition"
-                              >
-                                📋 <span>Copy</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={quoteSelectionIntoInput}
-                                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-3 py-1.5 text-xs text-slate-700 hover:bg-white transition"
-                              >
-                                💬 <span>Quote</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => saveAsNote(m.text)}
-                                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-3 py-1.5 text-xs text-slate-700 hover:bg-white transition"
-                              >
-                                ⭐ <span>Save</span>
-                              </button>
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={toggleTools}
-                              className="rounded-full border border-slate-200 bg-white/80 px-3 py-1.5 text-[11px] text-slate-700 hover:bg-white shadow-sm"
-                              title="Hide extra tools"
-                            >
-                              🙈 Hide tools
-                            </button>
-                          </div>
-
                           <div className="rounded-2xl border border-slate-200 bg-white/70 p-2 shadow-sm">
                             <div className="flex flex-wrap gap-2">
                               {refineButtons.map((b) => (
@@ -1145,22 +1084,6 @@ export default function ChatClient({ mode }: ChatClientProps) {
                                 </button>
                               ))}
                             </div>
-                          </div>
-
-                          <div className="flex flex-wrap gap-2 pt-1">
-                            <div className="w-full text-[11px] text-slate-500">Try next</div>
-                            {getSmartSuggestions.map((s) => (
-                              <button
-                                key={s}
-                                onClick={() => {
-                                  setInput(s.replace(/^[^\w]+?\s*/, ""));
-                                  window.setTimeout(() => inputRef.current?.focus(), 50);
-                                }}
-                                className="rounded-full border border-fuchsia-200 bg-white/60 px-4 py-2 text-xs text-fuchsia-700 hover:bg-white transition"
-                              >
-                                {s}
-                              </button>
-                            ))}
                           </div>
                         </div>
                       )}
@@ -1179,16 +1102,16 @@ export default function ChatClient({ mode }: ChatClientProps) {
               )}
             </div>
 
-            {/* INPUT (mobile: wide + wraps, but fixed height so it doesn't grow ugly) */}
+            {/* ✅ INPUT: full-width textarea on mobile (buttons move UNDER it) */}
             <div className="border-t border-slate-100 bg-white/80 backdrop-blur-xl p-3 sm:p-5 pb-[calc(env(safe-area-inset-bottom)+12px)]">
-              <div className="flex items-end gap-2">
-                <div className="flex-1 rounded-3xl border border-slate-200 bg-white/90 shadow-sm focus-within:ring-2 focus-within:ring-fuchsia-200 focus-within:border-fuchsia-200 transition">
+              <div className="flex flex-col sm:flex-row sm:items-end gap-2">
+                {/* textarea always gets FULL row width on mobile */}
+                <div className="w-full sm:flex-1 rounded-3xl border border-slate-200 bg-white/90 shadow-sm focus-within:ring-2 focus-within:ring-fuchsia-200 focus-within:border-fuchsia-200 transition">
                   <textarea
                     ref={inputRef}
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={(e) => {
-                      // Enter sends; Shift+Enter new line
                       if (e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault();
                         sendMessage();
@@ -1198,44 +1121,47 @@ export default function ChatClient({ mode }: ChatClientProps) {
                     className={classNames(
                       "w-full resize-none bg-transparent outline-none placeholder:text-slate-400",
                       "px-4 sm:px-5 py-3 sm:py-4 text-[15px] leading-relaxed",
-                      "min-h-[64px] h-[64px] sm:min-h-[72px] sm:h-[72px]",
-                      "overflow-y-auto"
+                      "min-h-[84px] sm:min-h-[72px]", // bigger by default on mobile
+                      "max-h-[120px] overflow-y-auto"
                     )}
                     disabled={isTyping || isLoadingHistory}
                   />
                 </div>
 
-                <button
-                  type="button"
-                  onClick={openNotes}
-                  className="shrink-0 rounded-3xl px-3 sm:px-4 py-3 sm:py-4 text-sm border border-slate-200 bg-white/90 text-slate-700 hover:bg-white shadow-sm transition"
-                  title="View Notes"
-                >
-                  ⭐<span className="hidden sm:inline"> Notes</span>
-                </button>
+                {/* buttons row: under textarea on mobile, inline on desktop */}
+                <div className="flex items-center justify-end gap-2 sm:justify-start">
+                  <button
+                    type="button"
+                    onClick={openNotes}
+                    className="shrink-0 rounded-3xl px-4 py-3 text-sm border border-slate-200 bg-white/90 text-slate-700 hover:bg-white shadow-sm transition"
+                    title="View Notes"
+                  >
+                    ⭐<span className="hidden sm:inline"> Notes</span>
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={toggleTools}
-                  className="shrink-0 rounded-3xl px-3 sm:px-4 py-3 sm:py-4 text-sm border border-slate-200 bg-white/90 text-slate-700 hover:bg-white shadow-sm transition"
-                  title={showTools ? "Hide extra tools" : "Show extra tools"}
-                >
-                  {showTools ? "🙈" : "✨"}
-                  <span className="hidden sm:inline"> Tools</span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={toggleTools}
+                    className="shrink-0 rounded-3xl px-4 py-3 text-sm border border-slate-200 bg-white/90 text-slate-700 hover:bg-white shadow-sm transition"
+                    title={showTools ? "Hide extra tools" : "Show extra tools"}
+                  >
+                    {showTools ? "🙈" : "✨"}
+                    <span className="hidden sm:inline"> Tools</span>
+                  </button>
 
-                <button
-                  onClick={sendMessage}
-                  disabled={!input.trim() || isTyping || isLoadingHistory}
-                  className={classNames(
-                    "shrink-0 rounded-3xl px-5 sm:px-6 py-3 sm:py-4 text-sm font-medium text-white shadow-lg transition",
-                    !input.trim() || isTyping || isLoadingHistory
-                      ? "bg-slate-300 cursor-not-allowed shadow-none"
-                      : "bg-gradient-to-r from-fuchsia-500 to-violet-500 hover:from-fuchsia-400 hover:to-violet-400"
-                  )}
-                >
-                  Send
-                </button>
+                  <button
+                    onClick={sendMessage}
+                    disabled={!input.trim() || isTyping || isLoadingHistory}
+                    className={classNames(
+                      "shrink-0 rounded-3xl px-6 py-3 text-sm font-medium text-white shadow-lg transition",
+                      !input.trim() || isTyping || isLoadingHistory
+                        ? "bg-slate-300 cursor-not-allowed shadow-none"
+                        : "bg-gradient-to-r from-fuchsia-500 to-violet-500 hover:from-fuchsia-400 hover:to-violet-400"
+                    )}
+                  >
+                    Send
+                  </button>
+                </div>
               </div>
 
               <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500">
