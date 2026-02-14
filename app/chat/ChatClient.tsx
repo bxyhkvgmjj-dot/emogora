@@ -11,10 +11,10 @@ type ChatClientProps = {
 };
 
 type Message = {
-  id?: string;
+  id?: string; // from DB
   role: "user" | "ai";
   text: string;
-  createdAt?: string | null;
+  createdAt?: string | null; // from DB
 };
 
 type ModeMeta = {
@@ -116,7 +116,7 @@ function writeNotes(next: NoteItem[]) {
 
 export default function ChatClient({ mode }: ChatClientProps) {
   const space = mode ?? "feel";
-  const modeMeta = MODE_LABELS[space] ?? MODE_LABELS.feel;
+  const modeMeta = MODE_LABELS[space] ?? MODE_LABELS["feel"];
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -138,7 +138,6 @@ export default function ChatClient({ mode }: ChatClientProps) {
   const [notesOpen, setNotesOpen] = useState(false);
   const [notes, setNotes] = useState<NoteItem[]>([]);
 
-  // mobile history drawer
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
 
   const chatRef = useRef<HTMLDivElement | null>(null);
@@ -147,9 +146,9 @@ export default function ChatClient({ mode }: ChatClientProps) {
   const MEMORY_KEY = `emogora_memory_${space}`;
   const SUMMARY_EVERY = 10;
 
-  // Prevent stale async overwrites (important on slower phones)
-  const requestSeqRef = useRef(0);
+  // Used to prevent stale async overwrites (esp. on slower phones)
   const activeConversationRef = useRef<string | null>(null);
+  const requestSeqRef = useRef(0);
 
   useEffect(() => {
     activeConversationRef.current = conversationId;
@@ -242,7 +241,7 @@ export default function ChatClient({ mode }: ChatClientProps) {
   }, [MEMORY_KEY]);
 
   // -------------------------
-  // Load one conversation
+  // Load one conversation messages
   // -------------------------
   const loadConversation = async (id: string) => {
     const seq = ++requestSeqRef.current;
@@ -252,9 +251,7 @@ export default function ChatClient({ mode }: ChatClientProps) {
     setChatError(null);
 
     try {
-      const res = await fetch(
-        `/api/chat?mode=${encodeURIComponent(space)}&conversationId=${encodeURIComponent(id)}`
-      );
+      const res = await fetch(`/api/chat?mode=${encodeURIComponent(space)}&conversationId=${encodeURIComponent(id)}`);
 
       if (res.status === 401) {
         window.location.href = "/login";
@@ -263,7 +260,9 @@ export default function ChatClient({ mode }: ChatClientProps) {
       if (!res.ok) throw new Error("Failed to load conversation");
 
       const data: { messages?: Message[] } = await res.json();
-      if (seq !== requestSeqRef.current) return; // stale response
+
+      // Ignore stale responses
+      if (seq !== requestSeqRef.current) return;
 
       setMessages(Array.isArray(data.messages) ? data.messages : []);
       setMobileDrawerOpen(false);
@@ -278,7 +277,7 @@ export default function ChatClient({ mode }: ChatClientProps) {
   };
 
   // -------------------------
-  // Conversations list
+  // Fetch conversations list
   // -------------------------
   const refreshConversations = async (opts?: { selectLatestIfEmpty?: boolean }) => {
     setIsLoadingConversations(true);
@@ -314,7 +313,6 @@ export default function ChatClient({ mode }: ChatClientProps) {
 
   useEffect(() => {
     setConversationId(null);
-    activeConversationRef.current = null;
     setMessages([]);
     setIsLoadingHistory(true);
     void refreshConversations({ selectLatestIfEmpty: true });
@@ -325,7 +323,8 @@ export default function ChatClient({ mode }: ChatClientProps) {
   // New chat
   // -------------------------
   const startNewChat = () => {
-    requestSeqRef.current += 1; // cancel in-flight loads
+    // Cancel any in-flight loads
+    requestSeqRef.current += 1;
 
     setConversationId(null);
     activeConversationRef.current = null;
@@ -427,18 +426,7 @@ export default function ChatClient({ mode }: ChatClientProps) {
   };
 
   // -------------------------
-  // Smart suggestions
-  // -------------------------
-  const getSmartSuggestions = useMemo(() => {
-    if (space === "plan")
-      return ["✅ Turn this into a checklist", "🗓️ Make a 7-day plan", "⚠️ What’s the biggest risk here?"];
-    if (space === "grow")
-      return ["🎯 Give me 3 strategy options", "🧠 Ask 1 question to sharpen this", "✍️ Rewrite this as a message/email"];
-    return ["🌿 Summarize in 3 bullets", "🧩 Give me 2 gentle next steps", "❓ Ask 1 question to understand me better"];
-  }, [space]);
-
-  // -------------------------
-  // Tools
+  // Message tools
   // -------------------------
   const copyToClipboard = async (text: string) => {
     try {
@@ -487,7 +475,7 @@ export default function ChatClient({ mode }: ChatClientProps) {
   };
 
   // -------------------------
-  // Delete conversation/message
+  // DELETE: conversation + message + turn
   // -------------------------
   const deleteConversation = async (id: string) => {
     const ok = window.confirm("Delete this conversation? This cannot be undone.");
@@ -510,7 +498,9 @@ export default function ChatClient({ mode }: ChatClientProps) {
 
       showToast("Conversation deleted ✓");
 
-      if (conversationId === id) startNewChat();
+      const wasActive = conversationId === id;
+      if (wasActive) startNewChat();
+
       await refreshConversations();
     } catch (e) {
       console.error(e);
@@ -528,7 +518,8 @@ export default function ChatClient({ mode }: ChatClientProps) {
         window.location.href = "/login";
         return false;
       }
-      return res.ok;
+      if (!res.ok) return false;
+      return true;
     } catch (e) {
       console.error(e);
       return false;
@@ -562,7 +553,7 @@ export default function ChatClient({ mode }: ChatClientProps) {
   };
 
   // -------------------------
-  // Improve
+  // Improve using API action (NO conversation reload after -> iOS stable)
   // -------------------------
   const improveLast = async (action: ChatAction) => {
     if (isTyping || isLoadingHistory) return;
@@ -573,7 +564,10 @@ export default function ChatClient({ mode }: ChatClientProps) {
 
     let convId = conversationId;
     if (!convId) {
-      convId = window.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2);
+      convId =
+        typeof window !== "undefined" && window.crypto?.randomUUID
+          ? window.crypto.randomUUID()
+          : Math.random().toString(36).slice(2);
       setConversationId(convId);
       activeConversationRef.current = convId;
     }
@@ -585,7 +579,13 @@ export default function ChatClient({ mode }: ChatClientProps) {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: space, messages, memory, conversationId: convId, action }),
+        body: JSON.stringify({
+          mode: space,
+          messages,
+          memory,
+          conversationId: convId,
+          action,
+        }),
       });
 
       if (res.status === 401) {
@@ -597,10 +597,10 @@ export default function ChatClient({ mode }: ChatClientProps) {
       const data: { reply?: string } = await res.json();
       const fullReply = data.reply ?? "Let’s try again.";
 
-      // Stream ONLY (no reload) => avoids “wipe” on some iPhones
       streamAiReply(fullReply);
 
       window.setTimeout(() => void refreshConversations(), 250);
+
       void maybeUpdateMemory([...messages, { role: "ai", text: fullReply, id: lastAi?.id }]);
     } catch (e) {
       console.error("Improve failed:", e);
@@ -610,15 +610,19 @@ export default function ChatClient({ mode }: ChatClientProps) {
   };
 
   // -------------------------
-  // Send
+  // Send message (NO conversation reload after -> iOS stable)
   // -------------------------
   const sendMessage = async () => {
     const trimmed = input.trim();
-    if (!trimmed || isTyping || isLoadingHistory) return;
+    if (!trimmed || isTyping) return;
+    if (isLoadingHistory) return;
 
     let convId = conversationId;
     if (!convId) {
-      convId = window.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2);
+      convId =
+        typeof window !== "undefined" && window.crypto?.randomUUID
+          ? window.crypto.randomUUID()
+          : Math.random().toString(36).slice(2);
       setConversationId(convId);
       activeConversationRef.current = convId;
     }
@@ -630,6 +634,8 @@ export default function ChatClient({ mode }: ChatClientProps) {
     setInput("");
     setIsTyping(true);
     setChatError(null);
+
+    window.setTimeout(() => inputRef.current?.focus(), 0);
 
     try {
       const res = await fetch("/api/chat", {
@@ -656,20 +662,18 @@ export default function ChatClient({ mode }: ChatClientProps) {
       streamAiReply(fullReply);
 
       window.setTimeout(() => void refreshConversations(), 250);
+
       void maybeUpdateMemory([...newMessages, { role: "ai", text: fullReply }]);
     } catch (error) {
       console.error("Error talking to Emogora API:", error);
       setIsTyping(false);
-      setMessages((prev) => [
-        ...prev,
-        { role: "ai", text: "Hmm — something went wrong on my side. Can you try again?" },
-      ]);
+      setMessages((prev) => [...prev, { role: "ai", text: "Hmm — something went wrong on my side. Can you try again?" }]);
       setChatError("Message failed to send. Please try again.");
     }
   };
 
   // -------------------------
-  // Grouped sidebar
+  // Sidebar grouping
   // -------------------------
   const grouped = useMemo(() => {
     const buckets: Record<string, ConversationItem[]> = { Today: [], Yesterday: [], Earlier: [] };
@@ -704,7 +708,7 @@ export default function ChatClient({ mode }: ChatClientProps) {
   }, [messages]);
 
   // -------------------------
-  // Mode-specific buttons
+  // Mode-specific tool buttons
   // -------------------------
   const refineButtons = useMemo(() => {
     const base = [
@@ -736,11 +740,12 @@ export default function ChatClient({ mode }: ChatClientProps) {
         },
       ];
     }
+
     return base;
   }, [space]);
 
   // -------------------------
-  // Reusable conversation list
+  // Reusable conversation list (desktop sidebar + mobile drawer)
   // -------------------------
   const ConversationList = ({ compact }: { compact?: boolean }) => (
     <div className={classNames("p-3 overflow-y-auto", compact ? "max-h-[70vh]" : "")}>
@@ -793,6 +798,7 @@ export default function ChatClient({ mode }: ChatClientProps) {
                           </div>
 
                           <div className="mt-1 text-[11px] text-slate-600 line-clamp-2">{c.preview || "—"}</div>
+
                           <div className="mt-1 text-[11px] text-slate-500">{new Date(c.date).toLocaleString()}</div>
                         </button>
 
@@ -822,16 +828,21 @@ export default function ChatClient({ mode }: ChatClientProps) {
     </div>
   );
 
+  // -------------------------
+  // RENDER
+  // -------------------------
   return (
     <div className="relative min-h-[100dvh] bg-[#fdf7ff] overflow-hidden">
       <div className="pointer-events-none fixed inset-0 opacity-95 bg-[radial-gradient(circle_at_top,_rgba(244,114,182,0.16),_transparent_55%),radial-gradient(circle_at_bottom,_rgba(56,189,248,0.12),_transparent_55%),radial-gradient(circle_at_0%_100%,rgba(248,239,223,0.9),_transparent_55%)]" />
 
+      {/* toast */}
       {toast && (
         <div className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-full border border-slate-200 bg-white/90 px-4 py-2 text-xs text-slate-700 shadow-lg backdrop-blur">
           {toast}
         </div>
       )}
 
+      {/* notes modal */}
       {notesOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/30" onClick={() => setNotesOpen(false)} />
@@ -898,6 +909,7 @@ export default function ChatClient({ mode }: ChatClientProps) {
         </div>
       )}
 
+      {/* Mobile drawer (history) */}
       {mobileDrawerOpen && (
         <div className="fixed inset-0 z-50 md:hidden">
           <div className="absolute inset-0 bg-black/30" onClick={() => setMobileDrawerOpen(false)} />
@@ -942,6 +954,7 @@ export default function ChatClient({ mode }: ChatClientProps) {
 
       <div className="relative z-10 mx-auto max-w-[1100px] px-3 sm:px-6 py-4 sm:py-6">
         <div className="grid grid-cols-1 md:grid-cols-[300px_1fr] gap-4">
+          {/* SIDEBAR */}
           <aside className="hidden md:flex flex-col rounded-[28px] bg-white/90 backdrop-blur-xl border border-slate-100 shadow-[0_18px_50px_rgba(148,163,184,0.28)] overflow-hidden">
             <div className="p-4 border-b border-slate-100 bg-gradient-to-r from-white/90 via-white to-rose-50/60">
               <div className="flex items-center justify-between gap-3">
@@ -974,10 +987,13 @@ export default function ChatClient({ mode }: ChatClientProps) {
             </div>
           </aside>
 
+          {/* MAIN CHAT */}
           <main className="relative rounded-[32px] bg-white/90 backdrop-blur-xl border border-slate-100 shadow-[0_22px_60px_rgba(148,163,184,0.35)] flex flex-col overflow-hidden min-h-[calc(100dvh-2rem)] md:min-h-0">
+            {/* Top bar */}
             <div className="p-4 sm:p-5 border-b border-slate-100 bg-gradient-to-r from-white/90 via-white to-rose-50/60">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-start gap-3">
+                  {/* mobile history button */}
                   <button
                     type="button"
                     onClick={() => setMobileDrawerOpen(true)}
@@ -1012,6 +1028,7 @@ export default function ChatClient({ mode }: ChatClientProps) {
               )}
             </div>
 
+            {/* Chat */}
             <div ref={chatRef} className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 space-y-5">
               {isLoadingHistory ? (
                 <div className="text-sm text-slate-500">Loading…</div>
@@ -1023,21 +1040,6 @@ export default function ChatClient({ mode }: ChatClientProps) {
                     Emogora is built for <span className="font-medium text-slate-900">clarity</span>,{" "}
                     <span className="font-medium text-slate-900">momentum</span>, and{" "}
                     <span className="font-medium text-slate-900">calm</span>.
-                  </div>
-
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {getSmartSuggestions.map((s) => (
-                      <button
-                        key={s}
-                        onClick={() => {
-                          setInput(s.replace(/^[^\w]+?\s*/, ""));
-                          window.setTimeout(() => inputRef.current?.focus(), 50);
-                        }}
-                        className="rounded-full border border-fuchsia-200 bg-white/70 px-3 py-1.5 text-xs text-fuchsia-700 hover:bg-white transition"
-                      >
-                        {s}
-                      </button>
-                    ))}
                   </div>
                 </div>
               ) : (
@@ -1054,7 +1056,7 @@ export default function ChatClient({ mode }: ChatClientProps) {
                       <div
                         className={classNames(
                           "relative group",
-                          "max-w-[96%] sm:max-w-[78%]",
+                          "max-w-[96%] sm:max-w-[78%]", // a bit wider on mobile
                           isUser ? "ml-auto" : "mr-auto"
                         )}
                       >
@@ -1067,10 +1069,78 @@ export default function ChatClient({ mode }: ChatClientProps) {
                             </div>
                           )}
                         </div>
+
+                        <div className="absolute -right-2 -top-2 opacity-0 group-hover:opacity-100 transition">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+
+                              if (m.role === "ai") {
+                                void deleteTurnAt(idx);
+                                return;
+                              }
+
+                              const ok = window.confirm("Delete this message?");
+                              if (!ok) return;
+
+                              setMessages((prev) => prev.filter((_, i) => i !== idx));
+                              if (m.id) {
+                                void (async () => {
+                                  await deleteMessageById(m.id!);
+                                  window.setTimeout(() => void refreshConversations(), 200);
+                                })();
+                              }
+                            }}
+                            className="rounded-full border border-slate-200 bg-white/90 px-2.5 py-1.5 text-xs text-slate-700 hover:bg-white shadow-sm"
+                            title={m.role === "ai" ? "Delete this Q+A" : "Delete message"}
+                          >
+                            🗑️
+                          </button>
+                        </div>
                       </div>
 
+                      {/* Tools under LAST AI only */}
                       {isLastAi && hasAnyUserMessage && showTools && (
                         <div className={classNames("mr-auto max-w-[96%] sm:max-w-[78%]", "space-y-3")}>
+                          {/* row: Copy / Quote / Save + hide tools */}
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                onClick={() => copyToClipboard(m.text)}
+                                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-3 py-1.5 text-xs text-slate-700 hover:bg-white transition"
+                              >
+                                📋 <span>Copy</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={quoteSelectionIntoInput}
+                                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-3 py-1.5 text-xs text-slate-700 hover:bg-white transition"
+                              >
+                                💬 <span>Quote</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => saveAsNote(m.text)}
+                                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-3 py-1.5 text-xs text-slate-700 hover:bg-white transition"
+                              >
+                                ⭐ <span>Save</span>
+                              </button>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={toggleTools}
+                              className="rounded-full border border-slate-200 bg-white/80 px-3 py-1.5 text-[11px] text-slate-700 hover:bg-white shadow-sm"
+                              title="Hide extra tools"
+                            >
+                              🙈 Hide tools
+                            </button>
+                          </div>
+
+                          {/* refine buttons */}
                           <div className="rounded-2xl border border-slate-200 bg-white/70 p-2 shadow-sm">
                             <div className="flex flex-wrap gap-2">
                               {refineButtons.map((b) => (
@@ -1102,66 +1172,68 @@ export default function ChatClient({ mode }: ChatClientProps) {
               )}
             </div>
 
-            {/* ✅ INPUT: full-width textarea on mobile (buttons move UNDER it) */}
+            {/* INPUT */}
             <div className="border-t border-slate-100 bg-white/80 backdrop-blur-xl p-3 sm:p-5 pb-[calc(env(safe-area-inset-bottom)+12px)]">
-              <div className="flex flex-col sm:flex-row sm:items-end gap-2">
-                {/* textarea always gets FULL row width on mobile */}
-                <div className="w-full sm:flex-1 rounded-3xl border border-slate-200 bg-white/90 shadow-sm focus-within:ring-2 focus-within:ring-fuchsia-200 focus-within:border-fuchsia-200 transition">
-                  <textarea
-                    ref={inputRef}
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        sendMessage();
-                      }
-                    }}
-                    placeholder="Type your message…"
-                    className={classNames(
-                      "w-full resize-none bg-transparent outline-none placeholder:text-slate-400",
-                      "px-4 sm:px-5 py-3 sm:py-4 text-[15px] leading-relaxed",
-                      "min-h-[84px] sm:min-h-[72px]", // bigger by default on mobile
-                      "max-h-[120px] overflow-y-auto"
-                    )}
-                    disabled={isTyping || isLoadingHistory}
-                  />
-                </div>
+              {/* Row 1: full-width input (big horizontally), wraps into new lines, but NO auto-grow */}
+              <div className="rounded-3xl border border-slate-200 bg-white/90 shadow-sm focus-within:ring-2 focus-within:ring-fuchsia-200 focus-within:border-fuchsia-200 transition">
+                <textarea
+                  ref={inputRef}
+                  value={input}
+                  rows={2}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    // Enter sends; Shift+Enter inserts newline
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      sendMessage();
+                    }
+                  }}
+                  placeholder="Type your message…"
+                  className="w-full resize-none bg-transparent px-5 py-4 text-[15px] leading-relaxed outline-none placeholder:text-slate-400"
+                  style={{
+                    // Big initial space + wrap (horizontal), but keep height stable (no “growing vertically”)
+                    minHeight: 64,
+                    maxHeight: 96,
+                    overflowY: "auto",
+                  }}
+                  disabled={isTyping || isLoadingHistory}
+                />
+              </div>
 
-                {/* buttons row: under textarea on mobile, inline on desktop */}
-                <div className="flex items-center justify-end gap-2 sm:justify-start">
+              {/* Row 2: Notes + Tools (with words on mobile) + Send */}
+              <div className="mt-3 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={openNotes}
-                    className="shrink-0 rounded-3xl px-4 py-3 text-sm border border-slate-200 bg-white/90 text-slate-700 hover:bg-white shadow-sm transition"
+                    className="rounded-3xl px-4 py-3 text-sm border border-slate-200 bg-white/90 text-slate-700 hover:bg-white shadow-sm transition"
                     title="View Notes"
                   >
-                    ⭐<span className="hidden sm:inline"> Notes</span>
+                    ⭐ <span>Notes</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={toggleTools}
-                    className="shrink-0 rounded-3xl px-4 py-3 text-sm border border-slate-200 bg-white/90 text-slate-700 hover:bg-white shadow-sm transition"
+                    className="rounded-3xl px-4 py-3 text-sm border border-slate-200 bg-white/90 text-slate-700 hover:bg-white shadow-sm transition"
                     title={showTools ? "Hide extra tools" : "Show extra tools"}
                   >
-                    {showTools ? "🙈" : "✨"}
-                    <span className="hidden sm:inline"> Tools</span>
-                  </button>
-
-                  <button
-                    onClick={sendMessage}
-                    disabled={!input.trim() || isTyping || isLoadingHistory}
-                    className={classNames(
-                      "shrink-0 rounded-3xl px-6 py-3 text-sm font-medium text-white shadow-lg transition",
-                      !input.trim() || isTyping || isLoadingHistory
-                        ? "bg-slate-300 cursor-not-allowed shadow-none"
-                        : "bg-gradient-to-r from-fuchsia-500 to-violet-500 hover:from-fuchsia-400 hover:to-violet-400"
-                    )}
-                  >
-                    Send
+                    {showTools ? "🙈" : "✨"} <span>Tools</span>
                   </button>
                 </div>
+
+                <button
+                  onClick={sendMessage}
+                  disabled={!input.trim() || isTyping || isLoadingHistory}
+                  className={classNames(
+                    "rounded-3xl px-7 py-3 text-sm font-medium text-white shadow-lg transition",
+                    !input.trim() || isTyping || isLoadingHistory
+                      ? "bg-slate-300 cursor-not-allowed shadow-none"
+                      : "bg-gradient-to-r from-fuchsia-500 to-violet-500 hover:from-fuchsia-400 hover:to-violet-400"
+                  )}
+                >
+                  Send
+                </button>
               </div>
 
               <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500">
