@@ -6,11 +6,11 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 
-// ✅ Gate signup behind a funnel link key.
-// Put the same value in .env.local / Vercel as NEXT_PUBLIC_SIGNUP_KEY
-const SIGNUP_KEY = process.env.NEXT_PUBLIC_SIGNUP_KEY || "CHANGE_ME_SIGNUP_KEY";
+type Props = {
+  initialMode?: "signin" | "signup";
+};
 
-export default function LoginForm() {
+export default function LoginForm({ initialMode = "signin" }: Props) {
   // ✅ avoid re-creating the client on every render
   const supabase = useMemo(() => supabaseBrowser(), []);
   const params = useSearchParams();
@@ -21,17 +21,12 @@ export default function LoginForm() {
   const [loading, setLoading] = useState(false);
 
   // ✅ Default is signin so /login = "Welcome back"
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [mode, setMode] = useState<"signin" | "signup">(initialMode);
 
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   const [mounted, setMounted] = useState(false);
-
-  // ✅ Read link params
-  const keyFromUrl = params.get("key");
-  const isValidSignupKey = keyFromUrl === SIGNUP_KEY;
-  const signupBlocked = mode === "signup" && !isValidSignupKey;
 
   // ✅ Support redirecting back to original page (middleware sets ?next=...)
   const nextUrl = params.get("next") || "/chat?mode=feel";
@@ -39,9 +34,10 @@ export default function LoginForm() {
   useEffect(() => {
     setMounted(true);
 
-    // ✅ mode can be forced by URL: /login?mode=signup
+    // ✅ mode can still be forced by URL: /login?mode=signin
+    // (signup is gated on the server now)
     const m = params.get("mode");
-    if (m === "signup" || m === "signin") setMode(m);
+    if (m === "signin") setMode("signin");
 
     // ✅ optional prefill: /login?email=...
     const e = params.get("email");
@@ -67,13 +63,8 @@ export default function LoginForm() {
       }
 
       if (mode === "signup") {
-        // ✅ Block account creation unless coming from funnel link
-        if (!isValidSignupKey) {
-          setError("This access link is invalid or expired. Please use your purchase link.");
-          return;
-        }
-
-        // ✅ Phase A: email confirmation OFF -> instant session
+        // ✅ Signup allowed ONLY if server rendered this page in signup mode
+        // (no key check needed here anymore)
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
 
@@ -106,7 +97,7 @@ export default function LoginForm() {
       {/* Background */}
       <div className="pointer-events-none fixed inset-0 opacity-95 bg-[radial-gradient(circle_at_top,_rgba(244,114,182,0.16),_transparent_55%),radial-gradient(circle_at_bottom,_rgba(56,189,248,0.12),_transparent_55%),radial-gradient(circle_at_0%_100%,rgba(248,239,223,0.9),_transparent_55%)]" />
 
-      {/* Soft floating blobs (Tailwind-only; no custom CSS needed) */}
+      {/* Soft floating blobs */}
       <div className="pointer-events-none fixed -top-24 -left-24 h-[340px] w-[340px] rounded-full bg-fuchsia-200/35 blur-3xl animate-pulse" />
       <div className="pointer-events-none fixed top-10 -right-24 h-[420px] w-[420px] rounded-full bg-violet-200/35 blur-3xl animate-pulse" />
       <div className="pointer-events-none fixed -bottom-28 left-1/3 h-[480px] w-[480px] rounded-full bg-sky-200/25 blur-3xl animate-pulse" />
@@ -168,12 +159,6 @@ export default function LoginForm() {
 
         {/* Body */}
         <div className="relative p-6 sm:p-7 space-y-3">
-          {signupBlocked && (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              This page is for paying customers only. Please use your purchase link from the confirmation email.
-            </div>
-          )}
-
           {error && (
             <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
               {error}
@@ -214,17 +199,17 @@ export default function LoginForm() {
               onKeyDown={(e) => {
                 if (e.key === "Enter") submit();
               }}
-              disabled={loading || signupBlocked}
+              disabled={loading}
             />
           </div>
 
           <button
             onClick={submit}
-            disabled={loading || (mode === "signup" && signupBlocked)}
+            disabled={loading}
             className={[
               "w-full inline-flex items-center justify-center rounded-2xl px-5 py-3 text-sm font-semibold transition",
               "shadow-[0_18px_40px_rgba(217,70,239,0.28)]",
-              loading || (mode === "signup" && signupBlocked)
+              loading
                 ? "bg-slate-200 text-slate-500 cursor-not-allowed shadow-none"
                 : "bg-gradient-to-r from-fuchsia-500 to-violet-500 text-white hover:from-fuchsia-400 hover:to-violet-400 active:scale-[0.99]",
             ].join(" ")}
@@ -232,7 +217,7 @@ export default function LoginForm() {
             {loading ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}
           </button>
 
-          {/* Bigger + clearer bottom CTA */}
+          {/* Bottom CTA */}
           <button
             onClick={() => {
               setError(null);
