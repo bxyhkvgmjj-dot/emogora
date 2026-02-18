@@ -28,7 +28,7 @@ export default function LoginForm({ initialMode = "signin" }: Props) {
 
   const [mounted, setMounted] = useState(false);
 
-  // ✅ Support redirecting back to original page (middleware sets ?next=...)
+  // ✅ Support redirecting back to original page (middleware sets ?next=...).
   const nextUrl = params.get("next") || "/chat?mode=feel";
 
   useEffect(() => {
@@ -49,6 +49,38 @@ export default function LoginForm({ initialMode = "signin" }: Props) {
     window.location.href = nextUrl;
   };
 
+  // ✅ Safe + reliable password reset (prevents email enumeration)
+  const sendReset = async () => {
+    if (loading) return;
+
+    setError(null);
+    setNotice(null);
+
+    if (!email) {
+      setError("Enter your email first, then click “Forgot password?”.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+
+      // ✅ Always show a generic success message (do not leak whether email exists)
+      if (error) {
+        setNotice("If this email exists, a reset link has been sent.");
+        return;
+      }
+
+      setNotice("If this email exists, a reset link has been sent. (Check spam too.)");
+    } catch {
+      setNotice("If this email exists, a reset link has been sent.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const submit = async () => {
     if (loading) return;
 
@@ -64,7 +96,6 @@ export default function LoginForm({ initialMode = "signin" }: Props) {
 
       if (mode === "signup") {
         // ✅ Signup allowed ONLY if server rendered this page in signup mode
-        // (no key check needed here anymore)
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
 
@@ -138,9 +169,7 @@ export default function LoginForm({ initialMode = "signin" }: Props) {
             </span>
           </h1>
 
-          <p className="mt-1.5 text-sm text-slate-600 leading-relaxed">
-            {subtitle}
-          </p>
+          <p className="mt-1.5 text-sm text-slate-600 leading-relaxed">{subtitle}</p>
 
           {mode === "signup" && (
             <div className="mt-4 grid grid-cols-3 gap-2 text-[11px] text-slate-600">
@@ -202,6 +231,20 @@ export default function LoginForm({ initialMode = "signin" }: Props) {
               disabled={loading}
             />
           </div>
+
+          {/* ✅ Forgot password (signin only) */}
+          {mode === "signin" && (
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={sendReset}
+                disabled={loading}
+                className="text-sm text-slate-600 hover:text-slate-900 underline underline-offset-4 disabled:opacity-50"
+              >
+                Forgot password?
+              </button>
+            </div>
+          )}
 
           <button
             onClick={submit}
