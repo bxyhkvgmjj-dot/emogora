@@ -47,6 +47,21 @@ function nowIso() {
 }
 
 /**
+ * ✅ Server "today" source of truth (prevents hallucinated dates)
+ */
+function readableToday() {
+  const now = new Date();
+  const human = now.toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+  const iso = now.toISOString();
+  return { human, iso };
+}
+
+/**
  * IMPORTANT:
  * We ensure "deeper" is a REAL upgrade:
  * - NOT just longer
@@ -251,6 +266,9 @@ export async function POST(req: Request) {
 
     const space = mode ?? "feel";
 
+    // ✅ Server-side date injected into the system prompt (prevents hallucinations)
+    const today = readableToday();
+
     // --------------------------------------------------
     // System prompt: professional, premium, readable
     // --------------------------------------------------
@@ -258,6 +276,12 @@ export async function POST(req: Request) {
 You are Emogora — a premium companion.
 
 Your #1 job: make answers feel clear, alive, and easy to act on.
+
+Date & factuality rules (CRITICAL):
+- Today's date is: ${today.human} (ISO: ${today.iso}).
+- If the user asks for today's date, day of week, "what day are we", or similar: use the exact date above.
+- Never invent dates, times, or "current" facts.
+- If you are not given a fact, say you don’t have live access and suggest a quick way to verify.
 
 Formatting rules (IMPORTANT):
 - Output Markdown (GitHub-flavored).
@@ -359,8 +383,7 @@ Rules:
     const last = inputMessages[inputMessages.length - 1];
 
     const rewrite = isRewriteAction(action);
-    const lastAiText =
-      rewrite && last && last.role === "ai" ? (last.text || "").trim() : "";
+    const lastAiText = rewrite && last && last.role === "ai" ? (last.text || "").trim() : "";
 
     const dropLastAiFromHistory = rewrite && last && last.role === "ai";
     const finalMessages = dropLastAiFromHistory ? inputMessages.slice(0, -1) : inputMessages;
