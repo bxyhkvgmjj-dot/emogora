@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
 
 type DayStat = {
@@ -55,14 +56,7 @@ export default async function MomentumDashboardPage() {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return (
-      <div className="rounded-3xl border border-white/50 bg-white/60 p-6 shadow-sm backdrop-blur">
-        <div className="text-sm font-semibold">Login required</div>
-        <div className="mt-1 text-sm text-zinc-600">
-          Please login to access Momentum.
-        </div>
-      </div>
-    );
+    redirect("/m/login");
   }
 
   const todayDate = new Date();
@@ -222,12 +216,18 @@ export default async function MomentumDashboardPage() {
 
   const summaryText =
     overdueTasks > 0
-      ? `You have ${overdueTasks} overdue task${overdueTasks > 1 ? "s" : ""}. Clear ${overdueTasks === 1 ? "it" : "them"} first to protect momentum.`
+      ? `You have ${overdueTasks} overdue task${overdueTasks > 1 ? "s" : ""}. Clear ${
+          overdueTasks === 1 ? "it" : "them"
+        } first to protect momentum.`
       : completedItems === 0
       ? "No wins logged yet today. Complete one habit or one task now to start momentum."
       : completedItems === 1
       ? "Strong start. One win logged today — keep going while the energy is there."
-      : `Great rhythm today: ${habitsCompletedToday} habit${habitsCompletedToday > 1 ? "s" : ""} and ${tasksCompletedToday} task${tasksCompletedToday > 1 ? "s" : ""} completed.`;
+      : `Great rhythm today: ${habitsCompletedToday} habit${
+          habitsCompletedToday > 1 ? "s" : ""
+        } and ${tasksCompletedToday} task${
+          tasksCompletedToday > 1 ? "s" : ""
+        } completed.`;
 
   const scoreTone =
     momentumScore >= 80

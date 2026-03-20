@@ -2,7 +2,6 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 export async function middleware(req: NextRequest) {
-  // ✅ IMPORTANT: res must be re-assignable
   let res = NextResponse.next({
     request: { headers: req.headers },
   });
@@ -16,12 +15,10 @@ export async function middleware(req: NextRequest) {
           return req.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          // ✅ Write cookies onto the outgoing response
           cookiesToSet.forEach(({ name, value, options }) => {
             res.cookies.set(name, value, options);
           });
 
-          // ✅ Recreate response to ensure Next sees updated headers
           res = NextResponse.next({
             request: { headers: req.headers },
           });
@@ -39,10 +36,14 @@ export async function middleware(req: NextRequest) {
   } = await supabase.auth.getUser();
 
   const pathname = req.nextUrl.pathname;
-  const isAuthPage = pathname.startsWith("/login");
+
+  const isEmogoraLoginPage = pathname === "/login";
   const isChatPage = pathname.startsWith("/chat");
 
-  // ✅ If not logged in and trying to access chat -> send to login and preserve "next"
+  const isMomentumLoginPage = pathname === "/m/login";
+  const isMomentumPage = pathname === "/m" || pathname.startsWith("/m/");
+
+  // Protect Emogora chat
   if (!user && isChatPage) {
     const url = req.nextUrl.clone();
     url.pathname = "/login";
@@ -50,11 +51,27 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // ✅ If logged in and trying to access login -> go to chat
-  if (user && isAuthPage) {
+  // Redirect logged-in users away from Emogora login
+  if (user && isEmogoraLoginPage) {
     const url = req.nextUrl.clone();
     url.pathname = "/chat";
     url.search = "?mode=feel";
+    return NextResponse.redirect(url);
+  }
+
+  // Protect Momentum pages, but allow /m/login
+  if (!user && isMomentumPage && !isMomentumLoginPage) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/m/login";
+    url.searchParams.set("next", req.nextUrl.pathname + req.nextUrl.search);
+    return NextResponse.redirect(url);
+  }
+
+  // Redirect logged-in users away from Momentum login
+  if (user && isMomentumLoginPage) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/m";
+    url.search = "";
     return NextResponse.redirect(url);
   }
 
@@ -62,5 +79,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/chat/:path*", "/login"],
+  matcher: ["/chat/:path*", "/login", "/m", "/m/:path*"],
 };
