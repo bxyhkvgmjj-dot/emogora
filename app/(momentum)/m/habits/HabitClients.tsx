@@ -2,20 +2,28 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, Flame, Plus, Sparkles, Trophy, X } from "lucide-react";
+import {
+  Check,
+  Flame,
+  Plus,
+  Sparkles,
+  Trophy,
+  Trash2,
+  X,
+} from "lucide-react";
 
 type Habit = {
   id: string;
   name: string;
   created_at: string;
-  done: boolean; // done today
+  done: boolean;
   current_streak?: number | null;
   best_streak?: number | null;
 };
 
 type Props = {
   initialHabits: Habit[];
-  today: string; // YYYY-MM-DD
+  today: string;
 };
 
 export default function HabitClients({ initialHabits, today }: Props) {
@@ -28,6 +36,9 @@ export default function HabitClients({ initialHabits, today }: Props) {
   const [err, setErr] = useState<string | null>(null);
 
   const [burstId, setBurstId] = useState<string | null>(null);
+
+  const [deleteTarget, setDeleteTarget] = useState<Habit | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const busySetRef = useRef(new Set<string>());
 
@@ -161,6 +172,36 @@ export default function HabitClients({ initialHabits, today }: Props) {
     }
   }
 
+  async function deleteHabit() {
+    if (!deleteTarget) return;
+
+    setErr(null);
+    setDeletingId(deleteTarget.id);
+
+    try {
+      const res = await fetch("/m/api/habits/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ habit_id: deleteTarget.id }),
+      });
+
+      const j = await res.json().catch(() => ({} as any));
+
+      if (!res.ok) {
+        setErr(`${res.status} — ${j?.error ?? "Could not delete habit."}`);
+        setDeletingId(null);
+        return;
+      }
+
+      setHabits((prev) => prev.filter((h) => h.id !== deleteTarget.id));
+      setDeleteTarget(null);
+      setDeletingId(null);
+    } catch {
+      setErr("Network error. Try again.");
+      setDeletingId(null);
+    }
+  }
+
   return (
     <div className="w-full">
       <div className="flex items-start justify-between gap-4">
@@ -215,15 +256,14 @@ export default function HabitClients({ initialHabits, today }: Props) {
           <AnimatePresence initial={false}>
             {habits.map((h) => {
               const isBusy = busyId === h.id;
+              const isDeleting = deletingId === h.id;
               const currentStreak = h.current_streak ?? 0;
               const bestStreak = h.best_streak ?? 0;
 
               return (
-                <motion.button
+                <motion.div
                   key={h.id}
                   layout
-                  onClick={() => toggleHabit(h.id)}
-                  disabled={isBusy}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{
                     opacity: 1,
@@ -231,7 +271,6 @@ export default function HabitClients({ initialHabits, today }: Props) {
                     scale: h.done ? 1.01 : 1,
                   }}
                   exit={{ opacity: 0, y: 10 }}
-                  whileTap={{ scale: 0.995 }}
                   transition={{
                     layout: { duration: 0.2 },
                     opacity: { duration: 0.2 },
@@ -239,85 +278,110 @@ export default function HabitClients({ initialHabits, today }: Props) {
                     scale: { type: "spring", stiffness: 260, damping: 18 },
                   }}
                   className={[
-                    "relative w-full overflow-hidden rounded-3xl border text-left shadow-sm transition",
+                    "group relative overflow-hidden rounded-3xl border shadow-sm transition",
                     "border-white/60 bg-white/70 backdrop-blur",
                     h.done ? "hover:bg-white/85" : "hover:bg-white/80",
-                    isBusy ? "opacity-80" : "",
+                    isBusy || isDeleting ? "opacity-80" : "",
                   ].join(" ")}
                 >
-                  <div className="flex items-center justify-between gap-4 px-5 py-4">
-                    <div className="flex min-w-0 items-center gap-4">
-                      <div className="relative shrink-0">
+                  <button
+                    onClick={() => toggleHabit(h.id)}
+                    disabled={isBusy || isDeleting}
+                    className="block w-full text-left"
+                  >
+                    <div className="flex items-center justify-between gap-4 px-5 py-4">
+                      <div className="flex min-w-0 items-center gap-4">
+                        <div className="relative shrink-0">
+                          <motion.div
+                            animate={h.done ? { scale: [1, 1.08, 1] } : { scale: 1 }}
+                            transition={{ duration: 0.22 }}
+                            className={[
+                              "flex h-10 w-10 items-center justify-center rounded-2xl",
+                              h.done
+                                ? "bg-gradient-to-br from-fuchsia-500 to-indigo-500 text-white shadow"
+                                : "bg-white text-zinc-900 ring-1 ring-black/10",
+                            ].join(" ")}
+                          >
+                            {h.done ? <Check className="h-5 w-5" /> : null}
+                          </motion.div>
+
+                          {burstId === h.id ? (
+                            <>
+                              <span className="pointer-events-none absolute inset-0 rounded-2xl bg-fuchsia-500/25 animate-[ping_0.65s_ease-out_1]" />
+                              <span className="pointer-events-none absolute -top-2 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-fuchsia-400 animate-[pop_0.65s_ease-out_1]" />
+                              <span className="pointer-events-none absolute top-1/2 -right-2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-indigo-400 animate-[pop_0.65s_ease-out_1]" />
+                              <span className="pointer-events-none absolute -bottom-2 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-indigo-400 animate-[pop_0.65s_ease-out_1]" />
+                              <span className="pointer-events-none absolute top-1/2 -left-2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-fuchsia-400 animate-[pop_0.65s_ease-out_1]" />
+                            </>
+                          ) : null}
+                        </div>
+
+                        <div className="min-w-0">
+                          <div
+                            className={[
+                              "truncate text-sm font-semibold",
+                              h.done ? "text-zinc-700 line-through" : "text-zinc-900",
+                            ].join(" ")}
+                          >
+                            {h.name}
+                          </div>
+
+                          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-zinc-500">
+                            <span>Tap to {h.done ? "mark as not done" : "complete"}</span>
+
+                            {currentStreak > 0 ? (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-2 py-1 font-medium text-orange-700">
+                                <Flame className="h-3 w-3" />
+                                {currentStreak} day{currentStreak > 1 ? "s" : ""}
+                              </span>
+                            ) : null}
+
+                            {bestStreak > 0 ? (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-1 font-medium text-zinc-600">
+                                <Trophy className="h-3 w-3" />
+                                Best {bestStreak}
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex shrink-0 items-center gap-3">
+                        <div className="text-xs text-zinc-500">
+                          {isDeleting
+                            ? "Deleting…"
+                            : isBusy
+                            ? "Saving…"
+                            : h.done
+                            ? "Completed"
+                            : "Pending"}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="px-5 pb-4">
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-100">
                         <motion.div
-                          animate={h.done ? { scale: [1, 1.08, 1] } : { scale: 1 }}
-                          transition={{ duration: 0.22 }}
-                          className={[
-                            "flex h-10 w-10 items-center justify-center rounded-2xl",
-                            h.done
-                              ? "bg-gradient-to-br from-fuchsia-500 to-indigo-500 text-white shadow"
-                              : "bg-white text-zinc-900 ring-1 ring-black/10",
-                          ].join(" ")}
-                        >
-                          {h.done ? <Check className="h-5 w-5" /> : null}
-                        </motion.div>
-
-                        {burstId === h.id ? (
-                          <>
-                            <span className="pointer-events-none absolute inset-0 rounded-2xl bg-fuchsia-500/25 animate-[ping_0.65s_ease-out_1]" />
-                            <span className="pointer-events-none absolute -top-2 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-fuchsia-400 animate-[pop_0.65s_ease-out_1]" />
-                            <span className="pointer-events-none absolute top-1/2 -right-2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-indigo-400 animate-[pop_0.65s_ease-out_1]" />
-                            <span className="pointer-events-none absolute -bottom-2 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-indigo-400 animate-[pop_0.65s_ease-out_1]" />
-                            <span className="pointer-events-none absolute top-1/2 -left-2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-fuchsia-400 animate-[pop_0.65s_ease-out_1]" />
-                          </>
-                        ) : null}
-                      </div>
-
-                      <div className="min-w-0">
-                        <div
-                          className={[
-                            "truncate text-sm font-semibold",
-                            h.done ? "text-zinc-700 line-through" : "text-zinc-900",
-                          ].join(" ")}
-                        >
-                          {h.name}
-                        </div>
-
-                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-zinc-500">
-                          <span>Tap to {h.done ? "mark as not done" : "complete"}</span>
-
-                          {currentStreak > 0 ? (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-2 py-1 font-medium text-orange-700">
-                              <Flame className="h-3 w-3" />
-                              {currentStreak} day{currentStreak > 1 ? "s" : ""}
-                            </span>
-                          ) : null}
-
-                          {bestStreak > 0 ? (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-1 font-medium text-zinc-600">
-                              <Trophy className="h-3 w-3" />
-                              Best {bestStreak}
-                            </span>
-                          ) : null}
-                        </div>
+                          className="h-full rounded-full bg-gradient-to-r from-fuchsia-500 via-purple-500 to-indigo-500"
+                          initial={false}
+                          animate={{ width: h.done ? "100%" : "0%" }}
+                          transition={{ duration: 0.35 }}
+                        />
                       </div>
                     </div>
+                  </button>
 
-                    <div className="shrink-0 text-xs text-zinc-500">
-                      {isBusy ? "Saving…" : h.done ? "Completed" : "Pending"}
-                    </div>
-                  </div>
-
-                  <div className="px-5 pb-4">
-                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-100">
-                      <motion.div
-                        className="h-full rounded-full bg-gradient-to-r from-fuchsia-500 via-purple-500 to-indigo-500"
-                        initial={false}
-                        animate={{ width: h.done ? "100%" : "0%" }}
-                        transition={{ duration: 0.35 }}
-                      />
-                    </div>
-                  </div>
-                </motion.button>
+                  <button
+                    type="button"
+                    onClick={() => setDeleteTarget(h)}
+                    disabled={isDeleting || isBusy}
+                    className="absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-2xl bg-white/90 text-zinc-500 shadow-sm ring-1 ring-black/5 transition hover:bg-red-50 hover:text-red-600 sm:opacity-0 sm:group-hover:opacity-100"
+                    aria-label={`Delete ${h.name}`}
+                    title="Delete habit"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </motion.div>
               );
             })}
           </AnimatePresence>
@@ -391,6 +455,77 @@ export default function HabitClients({ initialHabits, today }: Props) {
 
               <div className="mt-3 text-xs text-zinc-500">
                 Tip: start with one habit. Consistency beats intensity.
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {deleteTarget ? (
+          <motion.div
+            className="fixed inset-0 z-[60] flex items-end justify-center p-3 sm:items-center sm:p-6"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <div
+              className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+              onClick={() => {
+                if (!deletingId) setDeleteTarget(null);
+              }}
+            />
+
+            <motion.div
+              initial={{ y: 20, opacity: 0, scale: 0.98 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 20, opacity: 0, scale: 0.98 }}
+              transition={{ type: "spring", stiffness: 260, damping: 22 }}
+              className="relative w-full rounded-3xl bg-white p-5 shadow-xl ring-1 ring-black/5 sm:max-w-md sm:p-6"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-lg font-semibold text-zinc-900">
+                    Delete habit?
+                  </div>
+                  <div className="mt-1 text-sm text-zinc-600">
+                    <span className="font-medium text-zinc-900">
+                      {deleteTarget.name}
+                    </span>{" "}
+                    will be removed from your habits.
+                  </div>
+                </div>
+
+                <button
+                  className="flex h-9 w-9 items-center justify-center rounded-2xl hover:bg-zinc-100"
+                  onClick={() => {
+                    if (!deletingId) setDeleteTarget(null);
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="mt-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+                This action cannot be undone from the app.
+              </div>
+
+              <div className="mt-5 flex gap-3">
+                <button
+                  onClick={() => setDeleteTarget(null)}
+                  disabled={!!deletingId}
+                  className="flex-1 rounded-2xl bg-zinc-100 px-4 py-3 text-sm font-semibold transition hover:bg-zinc-200 disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  onClick={deleteHabit}
+                  disabled={!!deletingId}
+                  className="flex-1 rounded-2xl bg-red-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-60"
+                >
+                  {deletingId ? "Deleting..." : "Delete habit"}
+                </button>
               </div>
             </motion.div>
           </motion.div>
