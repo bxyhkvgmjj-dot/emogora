@@ -1,43 +1,28 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useMemo, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 
 type Props = {
   initialMode?: "signin" | "signup";
+  initialMessage?: string | null;
 };
 
 export default function MomentumLoginForm({
   initialMode = "signin",
+  initialMessage = null,
 }: Props) {
   const supabase = useMemo(() => supabaseBrowser(), []);
-  const params = useSearchParams();
 
   const [mode, setMode] = useState<"signin" | "signup">(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
   const [loading, setLoading] = useState(false);
-  const [mounted, setMounted] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-
-  useEffect(() => {
-    setMounted(true);
-
-    const modeParam = params.get("mode");
-    if (modeParam === "signup" || modeParam === "signin") {
-      setMode(modeParam);
-    }
-
-    const message = params.get("message");
-    if (message === "check-email") {
-      setNotice("Check your email to confirm your account.");
-    }
-  }, [params]);
+  const [notice, setNotice] = useState<string | null>(initialMessage);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -153,12 +138,9 @@ export default function MomentumLoginForm({
     }
   }
 
-  if (!mounted) return null;
-
   return (
     <main className="min-h-screen bg-neutral-950 text-white">
       <div className="grid min-h-screen lg:grid-cols-2">
-        {/* Left side */}
         <section className="hidden lg:flex flex-col justify-between border-r border-white/10 bg-gradient-to-b from-neutral-900 to-neutral-950 p-10">
           <div>
             <div className="inline-flex items-center rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-sm text-emerald-300">
@@ -191,7 +173,6 @@ export default function MomentumLoginForm({
           </div>
         </section>
 
-        {/* Right side */}
         <section className="flex items-center justify-center p-6 sm:p-10">
           <div className="w-full max-w-md rounded-3xl border border-white/10 bg-white/5 p-6 shadow-2xl backdrop-blur">
             <div className="mb-6">
