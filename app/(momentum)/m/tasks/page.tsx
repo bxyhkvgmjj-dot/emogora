@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import TaskClients from "./TaskClients";
 import { supabaseServer } from "@/lib/supabase/server";
 
@@ -17,14 +18,7 @@ export default async function TasksPage() {
   const today = isoDate(new Date());
 
   if (!user) {
-    return (
-      <div className="rounded-3xl border border-white/50 bg-white/60 backdrop-blur p-6 shadow-sm">
-        <div className="text-sm font-semibold">Login required</div>
-        <div className="mt-1 text-sm text-zinc-600">
-          Please login to access Momentum.
-        </div>
-      </div>
-    );
+    redirect("/m/login");
   }
 
   const { data: tasks, error: tasksErr } = await supabase
