@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { supabaseServer } from "@/lib/supabase/server";
 
 const nav = [
   { href: "/m", label: "Dashboard" },
@@ -7,11 +8,16 @@ const nav = [
   { href: "/m/calendar", label: "Calendar" },
 ];
 
-export default function MomentumLayout({
+export default async function MomentumLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const supabase = await supabaseServer();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f5ecff] via-[#eef9ff] to-[#fff0f6] text-zinc-800">
       <div className="mx-auto flex min-h-screen max-w-6xl">
@@ -58,7 +64,16 @@ export default function MomentumLayout({
               </div>
 
               <div className="flex items-center gap-2">
-                <div className="h-9 w-9 rounded-full border border-white/60 bg-white/60" />
+                {user ? (
+                  <form action="/auth/signout" method="post">
+                    <button
+                      type="submit"
+                      className="rounded-2xl border border-white/60 bg-white/60 px-4 py-2 text-sm font-medium shadow-sm transition hover:bg-white/80"
+                    >
+                      Logout
+                    </button>
+                  </form>
+                ) : null}
               </div>
             </div>
           </header>
