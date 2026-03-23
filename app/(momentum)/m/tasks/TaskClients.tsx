@@ -41,11 +41,18 @@ export default function TaskClients({
 
   const [pulseId, setPulseId] = useState<string | null>(null);
 
-  // ✅ NEW
   const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const completed = useMemo(() => tasks.filter((t) => t.done).length, [tasks]);
+
+  const overdueCount = useMemo(() => {
+    return tasks.filter((t) => !t.done && t.due_date && t.due_date < today).length;
+  }, [tasks, today]);
+
+  const todayCount = useMemo(() => {
+    return tasks.filter((t) => !t.done && t.due_date === today).length;
+  }, [tasks, today]);
 
   function openCreate() {
     setErr(null);
@@ -58,7 +65,10 @@ export default function TaskClients({
   async function createTask() {
     setErr(null);
     const trimmed = title.trim();
-    if (!trimmed) return setErr("Title required.");
+    if (!trimmed) {
+      setErr("Title required.");
+      return;
+    }
 
     try {
       const res = await fetch("/m/api/tasks/create", {
@@ -72,8 +82,10 @@ export default function TaskClients({
       });
 
       const j = await res.json().catch(() => ({} as any));
+
       if (!res.ok) {
-        return setErr(`${res.status} — ${j?.error ?? "Could not create task."}`);
+        setErr(`${res.status} — ${j?.error ?? "Could not create task."}`);
+        return;
       }
 
       const created: Task = {
@@ -85,44 +97,77 @@ export default function TaskClients({
         done: false,
       };
 
+      if (!created.id) {
+        setErr("Server response missing task id.");
+        return;
+      }
+
       setTasks((prev) => [created, ...prev]);
       setCreating(false);
+      setTitle("");
+      setDue("");
+      setNotes("");
     } catch {
       setErr("Network error. Try again.");
     }
   }
 
   async function toggleTask(taskId: string) {
+    setErr(null);
     if (busySetRef.current.has(taskId)) return;
 
     busySetRef.current.add(taskId);
     setBusyId(taskId);
+
+    const current = tasks.find((t) => t.id === taskId);
+    const nextDone = current ? !current.done : true;
 
     setTasks((prev) =>
       prev.map((t) => (t.id === taskId ? { ...t, done: !t.done } : t))
     );
 
     try {
-      await fetch("/m/api/tasks/toggle", {
+      const res = await fetch("/m/api/tasks/toggle", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ task_id: taskId, log_date: today }),
       });
 
-      setPulseId(taskId);
-      setTimeout(() => setPulseId(null), 500);
+      const j = await res.json().catch(() => ({} as any));
+
+      if (!res.ok) {
+        setTasks((prev) =>
+          prev.map((t) => (t.id === taskId ? { ...t, done: !t.done } : t))
+        );
+        setErr(`${res.status} — ${j?.error ?? "Could not update task."}`);
+        return;
+      }
+
+      const done = !!j?.done;
+
+      setTasks((prev) =>
+        prev.map((t) => (t.id === taskId ? { ...t, done } : t))
+      );
+
+      if (done && nextDone) {
+        setPulseId(taskId);
+        window.setTimeout(() => setPulseId(null), 500);
+      }
     } catch {
-      setErr("Error updating task.");
+      setTasks((prev) =>
+        prev.map((t) => (t.id === taskId ? { ...t, done: !t.done } : t))
+      );
+      setErr("Network error. Try again.");
     } finally {
       busySetRef.current.delete(taskId);
-      setBusyId(null);
+      setBusyId((p) => (p === taskId ? null : p));
     }
   }
 
-  // ✅ DELETE FUNCTION
   async function deleteTask() {
     if (!deleteTarget) return;
 
+    setErr(null);
     setDeletingId(deleteTarget.id);
 
     try {
@@ -132,96 +177,392 @@ export default function TaskClients({
         body: JSON.stringify({ task_id: deleteTarget.id }),
       });
 
-      if (!res.ok) throw new Error();
+      const j = await res.json().catch(() => ({} as any));
+
+      if (!res.ok) {
+        setErr(`${res.status} — ${j?.error ?? "Could not delete task."}`);
+        setDeletingId(null);
+        return;
+      }
 
       setTasks((prev) => prev.filter((t) => t.id !== deleteTarget.id));
       setDeleteTarget(null);
+      setDeletingId(null);
     } catch {
-      setErr("Could not delete task.");
-    } finally {
+      setErr("Network error. Try again.");
       setDeletingId(null);
     }
   }
 
   return (
     <div className="w-full">
-      <div className="flex items-start justify-between">
-        <h1 className="text-3xl font-semibold">Tasks</h1>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-semibold tracking-tight">Tasks</h1>
+          <p className="mt-1 text-sm text-zinc-600">
+            {completed} / {tasks.length} done today
+            {overdueCount ? (
+              <span className="ml-2 text-red-600">• {overdueCount} overdue</span>
+            ) : null}
+            {!overdueCount && todayCount ? (
+              <span className="ml-2 text-amber-600">• {todayCount} due today</span>
+            ) : null}
+          </p>
+        </div>
 
-        <button onClick={openCreate} className="rounded-xl bg-white px-4 py-2 shadow">
+        <button
+          onClick={openCreate}
+          className="hidden sm:inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-medium shadow-sm ring-1 ring-black/5 transition hover:bg-zinc-50 active:scale-[0.98]"
+        >
+          <Plus className="h-4 w-4" />
+          Add task
+        </button>
+      </div>
+
+      <div className="mt-4 sm:hidden">
+        <button
+          onClick={openCreate}
+          className="w-full rounded-2xl bg-gradient-to-r from-fuchsia-500 via-purple-500 to-indigo-500 px-4 py-3 text-sm font-semibold text-white shadow-sm transition active:scale-[0.99]"
+        >
           + Add task
         </button>
       </div>
 
       <div className="mt-6 space-y-3">
-        <AnimatePresence>
-          {tasks.map((t) => {
-            const isBusy = busyId === t.id;
-
-            return (
-              <motion.div
-                key={t.id}
-                layout
-                className="group relative rounded-3xl bg-white/70 p-4 shadow"
-              >
-                {/* CLICK AREA */}
-                <button
-                  onClick={() => toggleTask(t.id)}
-                  className="w-full text-left"
-                >
-                  <div className="flex justify-between">
-                    <div>
-                      <div className="font-semibold">{t.title}</div>
-                      {t.due_date && (
-                        <div className="text-xs text-zinc-500">
-                          Due {t.due_date}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="text-xs">
-                      {isBusy ? "..." : t.done ? "Done" : "Pending"}
-                    </div>
-                  </div>
-                </button>
-
-                {/* ✅ DELETE BUTTON */}
-                <button
-                  onClick={() => setDeleteTarget(t)}
-                  className="absolute right-3 top-3 hidden h-8 w-8 items-center justify-center rounded-xl bg-white shadow group-hover:flex hover:bg-red-50"
-                >
-                  <Trash2 className="h-4 w-4 text-red-500" />
-                </button>
-              </motion.div>
-            );
-          })}
-        </AnimatePresence>
-      </div>
-
-      {/* ✅ DELETE MODAL */}
-      <AnimatePresence>
-        {deleteTarget && (
-          <motion.div className="fixed inset-0 z-50 flex items-center justify-center">
-            <div className="absolute inset-0 bg-black/30" />
-
-            <div className="relative rounded-2xl bg-white p-6 shadow-xl">
-              <div className="font-semibold">Delete task?</div>
-              <div className="text-sm text-zinc-600 mt-1">
-                {deleteTarget.title}
+        {tasks.length === 0 ? (
+          <div className="rounded-3xl border border-white/50 bg-white/60 p-6 shadow-sm backdrop-blur">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-500 to-indigo-500 text-white">
+                <Sparkles className="h-5 w-5" />
               </div>
-
-              <div className="mt-4 flex gap-2">
-                <button onClick={() => setDeleteTarget(null)}>Cancel</button>
-                <button onClick={deleteTask} className="text-red-600">
-                  Delete
-                </button>
+              <div>
+                <div className="text-sm font-semibold">No tasks yet</div>
+                <div className="mt-1 text-sm text-zinc-600">
+                  Add a task and keep the day clean.
+                </div>
               </div>
             </div>
-          </motion.div>
+          </div>
+        ) : (
+          <AnimatePresence initial={false}>
+            {tasks.map((t) => {
+              const isBusy = busyId === t.id;
+              const isDeleting = deletingId === t.id;
+              const isOverdue = !t.done && !!t.due_date && t.due_date < today;
+              const isToday = !t.done && t.due_date === today;
+
+              return (
+                <motion.div
+                  key={t.id}
+                  layout
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{
+                    opacity: 1,
+                    y: 0,
+                    scale: t.done ? 1.01 : 1,
+                  }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{
+                    layout: { duration: 0.2 },
+                    opacity: { duration: 0.2 },
+                    y: { duration: 0.2 },
+                    scale: { type: "spring", stiffness: 260, damping: 18 },
+                  }}
+                  className={[
+                    "group relative overflow-hidden rounded-3xl border text-left shadow-sm transition",
+                    "bg-white/70 backdrop-blur hover:bg-white/80",
+                    isOverdue ? "border-red-200" : "border-white/60",
+                    isBusy || isDeleting ? "opacity-80" : "",
+                  ].join(" ")}
+                >
+                  <button
+                    onClick={() => toggleTask(t.id)}
+                    disabled={isBusy || isDeleting}
+                    className="block w-full text-left"
+                  >
+                    <div className="flex items-center justify-between gap-4 px-5 py-4">
+                      <div className="flex min-w-0 items-center gap-4">
+                        <div className="relative shrink-0">
+                          <motion.div
+                            animate={t.done ? { scale: [1, 1.06, 1] } : { scale: 1 }}
+                            transition={{ duration: 0.2 }}
+                            className={[
+                              "flex h-10 w-10 items-center justify-center rounded-2xl",
+                              t.done
+                                ? "bg-gradient-to-br from-fuchsia-500 to-indigo-500 text-white shadow"
+                                : isOverdue
+                                ? "bg-red-50 text-red-600 ring-1 ring-red-200"
+                                : "bg-white text-zinc-900 ring-1 ring-black/10",
+                            ].join(" ")}
+                          >
+                            {t.done ? (
+                              <Check className="h-5 w-5" />
+                            ) : isOverdue ? (
+                              <AlertTriangle className="h-4 w-4" />
+                            ) : null}
+                          </motion.div>
+
+                          {pulseId === t.id ? (
+                            <span className="pointer-events-none absolute inset-0 rounded-2xl bg-fuchsia-500/20 animate-[ping_0.5s_ease-out_1]" />
+                          ) : null}
+                        </div>
+
+                        <div className="min-w-0">
+                          <div
+                            className={[
+                              "truncate text-sm font-semibold",
+                              t.done ? "text-zinc-700 line-through" : "text-zinc-900",
+                            ].join(" ")}
+                          >
+                            {t.title}
+                          </div>
+
+                          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-zinc-500">
+                            <span>Tap to {t.done ? "undo" : "complete"}</span>
+
+                            {t.due_date ? (
+                              <span
+                                className={[
+                                  "inline-flex items-center gap-1 rounded-full px-2 py-1 font-medium",
+                                  isOverdue
+                                    ? "bg-red-50 text-red-600"
+                                    : isToday
+                                    ? "bg-amber-50 text-amber-700"
+                                    : "bg-zinc-100 text-zinc-600",
+                                ].join(" ")}
+                              >
+                                <Calendar className="h-3 w-3" />
+                                Due {t.due_date}
+                              </span>
+                            ) : null}
+                          </div>
+
+                          {t.notes ? (
+                            <div className="mt-2 line-clamp-2 text-xs text-zinc-600">
+                              {t.notes}
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      <div className="flex shrink-0 items-center gap-3">
+                        <div className="text-xs text-zinc-500">
+                          {isDeleting
+                            ? "Deleting…"
+                            : isBusy
+                            ? "Saving…"
+                            : t.done
+                            ? "Done"
+                            : isOverdue
+                            ? "Overdue"
+                            : isToday
+                            ? "Today"
+                            : "Pending"}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="px-5 pb-4">
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-100">
+                        <motion.div
+                          className={[
+                            "h-full rounded-full",
+                            t.done
+                              ? "bg-gradient-to-r from-fuchsia-500 via-purple-500 to-indigo-500"
+                              : isOverdue
+                              ? "bg-red-400"
+                              : isToday
+                              ? "bg-amber-400"
+                              : "bg-transparent",
+                          ].join(" ")}
+                          initial={false}
+                          animate={{
+                            width: t.done ? "100%" : isOverdue || isToday ? "35%" : "0%",
+                          }}
+                          transition={{ duration: 0.35 }}
+                        />
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setDeleteTarget(t)}
+                    disabled={isDeleting || isBusy}
+                    className="absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-2xl bg-white/90 text-zinc-500 shadow-sm ring-1 ring-black/5 transition hover:bg-red-50 hover:text-red-600 sm:opacity-0 sm:group-hover:opacity-100"
+                    aria-label={`Delete ${t.title}`}
+                    title="Delete task"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
         )}
+      </div>
+
+      {err ? <div className="mt-4 text-sm text-red-600">{err}</div> : null}
+
+      <AnimatePresence>
+        {creating ? (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-end justify-center p-3 sm:items-center sm:p-6"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <div
+              className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+              onClick={() => setCreating(false)}
+            />
+            <motion.div
+              initial={{ y: 20, opacity: 0, scale: 0.98 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 20, opacity: 0, scale: 0.98 }}
+              transition={{ type: "spring", stiffness: 260, damping: 22 }}
+              className="relative w-full rounded-3xl bg-white p-5 shadow-xl ring-1 ring-black/5 sm:max-w-lg sm:p-6"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-lg font-semibold">New task</div>
+                  <div className="text-sm text-zinc-600">
+                    Make it clear and finishable.
+                  </div>
+                </div>
+                <button
+                  className="flex h-9 w-9 items-center justify-center rounded-2xl hover:bg-zinc-100"
+                  onClick={() => setCreating(false)}
+                  type="button"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                <input
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") createTask();
+                  }}
+                  placeholder="Send invoice"
+                  autoFocus
+                  className="w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-purple-400"
+                />
+
+                <input
+                  value={due}
+                  onChange={(e) => setDue(e.target.value)}
+                  type="date"
+                  className="w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-purple-400"
+                />
+
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Optional notes…"
+                  rows={3}
+                  className="w-full resize-none rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-purple-400"
+                />
+
+                {err ? <div className="text-sm text-red-600">{err}</div> : null}
+              </div>
+
+              <div className="mt-5 flex gap-3">
+                <button
+                  onClick={() => setCreating(false)}
+                  type="button"
+                  className="flex-1 rounded-2xl bg-zinc-100 px-4 py-3 text-sm font-semibold transition hover:bg-zinc-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={createTask}
+                  type="button"
+                  className="flex-1 rounded-2xl bg-gradient-to-r from-fuchsia-500 via-purple-500 to-indigo-500 px-4 py-3 text-sm font-semibold text-white transition hover:opacity-95 active:scale-[0.99]"
+                >
+                  Create
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
       </AnimatePresence>
 
-      {err && <div className="mt-4 text-red-500">{err}</div>}
+      <AnimatePresence>
+        {deleteTarget ? (
+          <motion.div
+            className="fixed inset-0 z-[60] flex items-end justify-center p-3 sm:items-center sm:p-6"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <div
+              className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+              onClick={() => {
+                if (!deletingId) setDeleteTarget(null);
+              }}
+            />
+
+            <motion.div
+              initial={{ y: 20, opacity: 0, scale: 0.98 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 20, opacity: 0, scale: 0.98 }}
+              transition={{ type: "spring", stiffness: 260, damping: 22 }}
+              className="relative w-full rounded-3xl bg-white p-5 shadow-xl ring-1 ring-black/5 sm:max-w-md sm:p-6"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-lg font-semibold text-zinc-900">
+                    Delete task?
+                  </div>
+                  <div className="mt-1 text-sm text-zinc-600">
+                    <span className="font-medium text-zinc-900">
+                      {deleteTarget.title}
+                    </span>{" "}
+                    will be removed from your tasks.
+                  </div>
+                </div>
+
+                <button
+                  className="flex h-9 w-9 items-center justify-center rounded-2xl hover:bg-zinc-100"
+                  onClick={() => {
+                    if (!deletingId) setDeleteTarget(null);
+                  }}
+                  type="button"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="mt-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+                This action cannot be undone from the app.
+              </div>
+
+              <div className="mt-5 flex gap-3">
+                <button
+                  onClick={() => setDeleteTarget(null)}
+                  disabled={!!deletingId}
+                  type="button"
+                  className="flex-1 rounded-2xl bg-zinc-100 px-4 py-3 text-sm font-semibold transition hover:bg-zinc-200 disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  onClick={deleteTask}
+                  disabled={!!deletingId}
+                  type="button"
+                  className="flex-1 rounded-2xl bg-red-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-60"
+                >
+                  {deletingId ? "Deleting..." : "Delete task"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }
