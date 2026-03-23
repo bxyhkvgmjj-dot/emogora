@@ -21,8 +21,8 @@ export default async function MomentumLayout({
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f5ecff] via-[#eef9ff] to-[#fff0f6] text-zinc-800">
       <div className="mx-auto flex min-h-screen max-w-6xl">
-        <aside className="hidden w-72 shrink-0 border-r border-white/40 bg-white/35 backdrop-blur-md md:block">
-          <div className="p-6">
+        <aside className="hidden w-72 shrink-0 border-r border-white/40 bg-white/35 backdrop-blur-md md:flex md:flex-col">
+          <div className="flex flex-1 flex-col p-6">
             <div className="flex items-center gap-2">
               <div className="h-9 w-9 rounded-2xl bg-gradient-to-br from-[#c026d3] to-[#6366f1]" />
               <div>
@@ -50,6 +50,19 @@ export default async function MomentumLayout({
                 <div className="h-full w-[62%] rounded-full bg-gradient-to-r from-[#c026d3] via-[#a855f7] to-[#6366f1]" />
               </div>
             </div>
+
+            <div className="mt-auto pt-6">
+              {user ? (
+                <form action="/auth/signout" method="post">
+                  <button
+                    type="submit"
+                    className="w-full rounded-2xl border border-white/60 bg-white/60 px-4 py-3 text-sm font-medium shadow-sm transition hover:bg-white/80"
+                  >
+                    Logout
+                  </button>
+                </form>
+              ) : null}
+            </div>
           </div>
         </aside>
 
@@ -63,7 +76,7 @@ export default async function MomentumLayout({
                 <div className="text-sm font-semibold">Welcome back</div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="md:hidden">
                 {user ? (
                   <form action="/auth/signout" method="post">
                     <button
