@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
 
 const nav = [
@@ -17,6 +18,14 @@ export default async function MomentumLayout({
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  async function logoutAction() {
+    "use server";
+
+    const supabase = await supabaseServer();
+    await supabase.auth.signOut();
+    redirect("/m/login");
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f5ecff] via-[#eef9ff] to-[#fff0f6] text-zinc-800">
@@ -53,7 +62,7 @@ export default async function MomentumLayout({
 
             <div className="mt-auto pt-6">
               {user ? (
-                <form action="/auth/signout" method="post">
+                <form action={logoutAction}>
                   <button
                     type="submit"
                     className="w-full rounded-2xl border border-white/60 bg-white/60 px-4 py-3 text-sm font-medium shadow-sm transition hover:bg-white/80"
@@ -78,7 +87,7 @@ export default async function MomentumLayout({
 
               <div className="md:hidden">
                 {user ? (
-                  <form action="/auth/signout" method="post">
+                  <form action={logoutAction}>
                     <button
                       type="submit"
                       className="rounded-2xl border border-white/60 bg-white/60 px-4 py-2 text-sm font-medium shadow-sm transition hover:bg-white/80"
