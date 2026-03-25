@@ -72,38 +72,6 @@ export default function MomentumLoginForm({
     }
   }
 
-  async function handleMagicLink() {
-    setError(null);
-    setNotice(null);
-
-    if (!email.trim()) {
-      setError("Enter your email first.");
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email: email.trim(),
-        options: {
-          emailRedirectTo: getMomentumCallbackUrl(),
-        },
-      });
-
-      if (error) {
-        setError(error.message);
-        return;
-      }
-
-      setNotice("Magic link sent. Check your email.");
-    } catch {
-      setError("Unable to send magic link.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
   async function handleForgotPassword() {
     setError(null);
     setNotice(null);
@@ -305,15 +273,6 @@ export default function MomentumLoginForm({
               </form>
 
               <div className="mt-4 space-y-3">
-                <button
-                  type="button"
-                  onClick={handleMagicLink}
-                  disabled={loading}
-                  className="w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:opacity-60"
-                >
-                  Continue with magic link
-                </button>
-
                 {mode === "signin" && (
                   <button
                     type="button"
