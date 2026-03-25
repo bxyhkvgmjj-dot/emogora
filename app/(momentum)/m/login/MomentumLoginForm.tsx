@@ -22,6 +22,14 @@ export default function MomentumLoginForm({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(initialMessage);
 
+  function getOrigin() {
+    return typeof window !== "undefined" ? window.location.origin : "";
+  }
+
+  function getMomentumCallbackUrl() {
+    return `${getOrigin()}/auth/callback?next=/m`;
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -30,14 +38,11 @@ export default function MomentumLoginForm({
 
     try {
       if (mode === "signup") {
-        const origin =
-          typeof window !== "undefined" ? window.location.origin : "";
-
         const { error } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            emailRedirectTo: `${origin}/auth/callback?next=/m`,
+            emailRedirectTo: getMomentumCallbackUrl(),
           },
         });
 
@@ -71,7 +76,7 @@ export default function MomentumLoginForm({
     setError(null);
     setNotice(null);
 
-    if (!email) {
+    if (!email.trim()) {
       setError("Enter your email first.");
       return;
     }
@@ -79,13 +84,10 @@ export default function MomentumLoginForm({
     setLoading(true);
 
     try {
-      const origin =
-        typeof window !== "undefined" ? window.location.origin : "";
-
       const { error } = await supabase.auth.signInWithOtp({
-        email,
+        email: email.trim(),
         options: {
-          emailRedirectTo: `${origin}/auth/callback?next=/m`,
+          emailRedirectTo: getMomentumCallbackUrl(),
         },
       });
 
@@ -106,7 +108,7 @@ export default function MomentumLoginForm({
     setError(null);
     setNotice(null);
 
-    if (!email) {
+    if (!email.trim()) {
       setError("Enter your email first to reset your password.");
       return;
     }
@@ -114,11 +116,8 @@ export default function MomentumLoginForm({
     setLoading(true);
 
     try {
-      const origin =
-        typeof window !== "undefined" ? window.location.origin : "";
-
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${origin}/auth/reset-password`,
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${getOrigin()}/auth/reset-password`,
       });
 
       if (error) {
