@@ -32,10 +32,60 @@ export default async function MomentumLayout({
       <div className="mx-auto flex min-h-screen max-w-6xl">
         <aside className="hidden w-72 shrink-0 border-r border-white/40 bg-white/35 backdrop-blur-md md:flex md:flex-col">
           <div className="flex flex-1 flex-col p-6">
-            <div className="flex items-center gap-2">
-              <div className="h-9 w-9 rounded-2xl bg-gradient-to-br from-[#c026d3] to-[#6366f1]" />
+            <div className="flex items-center gap-3">
+              <div className="h-11 w-11 shrink-0">
+                <svg
+                  viewBox="0 0 64 64"
+                  className="h-full w-full"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-label="Momentum logo"
+                >
+                  <defs>
+                    <linearGradient id="momentum-bg" x1="8" y1="8" x2="56" y2="56">
+                      <stop stopColor="#d946ef" />
+                      <stop offset="0.5" stopColor="#a855f7" />
+                      <stop offset="1" stopColor="#6366f1" />
+                    </linearGradient>
+
+                    <linearGradient id="momentum-stroke" x1="18" y1="18" x2="47" y2="46">
+                      <stop stopColor="white" stopOpacity="0.98" />
+                      <stop offset="1" stopColor="white" stopOpacity="0.84" />
+                    </linearGradient>
+                  </defs>
+
+                  <rect
+                    x="6"
+                    y="6"
+                    width="52"
+                    height="52"
+                    rx="18"
+                    fill="url(#momentum-bg)"
+                  />
+
+                  <path
+                    d="M16 40C19 33 22 26 26 26C29 26 31 31 32 33.5C33 31 35 26 38 26C42 26 45 33 48 40"
+                    stroke="url(#momentum-stroke)"
+                    strokeWidth="5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+
+                  <path
+                    d="M18 44C21.5 39.5 25 37.2 28.4 37.2C30 37.2 31.2 37.7 32 38.4C32.8 37.7 34 37.2 35.6 37.2C39 37.2 42.5 39.5 46 44"
+                    stroke="url(#momentum-stroke)"
+                    strokeWidth="2.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    opacity="0.9"
+                  />
+                </svg>
+              </div>
+
               <div>
-                <div className="text-sm font-semibold leading-tight">Momentum</div>
+                <div className="text-[15px] font-semibold leading-tight tracking-[-0.01em]">
+                  Momentum
+                </div>
                 <div className="text-xs text-zinc-500">Habits + tasks</div>
               </div>
             </div>
@@ -78,7 +128,57 @@ export default async function MomentumLayout({
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="sticky top-0 z-30 border-b border-white/40 bg-white/30 backdrop-blur-md">
             <div className="flex items-center justify-between px-4 py-3 md:px-8">
-              <div className="md:hidden text-sm font-semibold">Momentum</div>
+              <div className="md:hidden flex items-center gap-2">
+                <div className="h-8 w-8 shrink-0">
+                  <svg
+                    viewBox="0 0 64 64"
+                    className="h-full w-full"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    aria-label="Momentum logo"
+                  >
+                    <defs>
+                      <linearGradient id="momentum-bg-mobile" x1="8" y1="8" x2="56" y2="56">
+                        <stop stopColor="#d946ef" />
+                        <stop offset="0.5" stopColor="#a855f7" />
+                        <stop offset="1" stopColor="#6366f1" />
+                      </linearGradient>
+
+                      <linearGradient id="momentum-stroke-mobile" x1="18" y1="18" x2="47" y2="46">
+                        <stop stopColor="white" stopOpacity="0.98" />
+                        <stop offset="1" stopColor="white" stopOpacity="0.84" />
+                      </linearGradient>
+                    </defs>
+
+                    <rect
+                      x="6"
+                      y="6"
+                      width="52"
+                      height="52"
+                      rx="18"
+                      fill="url(#momentum-bg-mobile)"
+                    />
+
+                    <path
+                      d="M16 40C19 33 22 26 26 26C29 26 31 31 32 33.5C33 31 35 26 38 26C42 26 45 33 48 40"
+                      stroke="url(#momentum-stroke-mobile)"
+                      strokeWidth="5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+
+                    <path
+                      d="M18 44C21.5 39.5 25 37.2 28.4 37.2C30 37.2 31.2 37.7 32 38.4C32.8 37.7 34 37.2 35.6 37.2C39 37.2 42.5 39.5 46 44"
+                      stroke="url(#momentum-stroke-mobile)"
+                      strokeWidth="2.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      opacity="0.9"
+                    />
+                  </svg>
+                </div>
+                <span className="text-sm font-semibold">Momentum</span>
+              </div>
 
               <div className="hidden md:block">
                 <div className="text-xs text-zinc-500">Today</div>
