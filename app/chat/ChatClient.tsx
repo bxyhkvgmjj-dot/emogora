@@ -1,4 +1,3 @@
-// app/chat/ChatClient.tsx
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -828,21 +827,16 @@ export default function ChatClient({ mode }: ChatClientProps) {
     </div>
   );
 
-  // -------------------------
-  // RENDER
-  // -------------------------
   return (
     <div className="relative min-h-[100dvh] bg-[#fdf7ff] overflow-hidden">
       <div className="pointer-events-none fixed inset-0 opacity-95 bg-[radial-gradient(circle_at_top,_rgba(244,114,182,0.16),_transparent_55%),radial-gradient(circle_at_bottom,_rgba(56,189,248,0.12),_transparent_55%),radial-gradient(circle_at_0%_100%,rgba(248,239,223,0.9),_transparent_55%)]" />
 
-      {/* toast */}
       {toast && (
         <div className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-full border border-slate-200 bg-white/90 px-4 py-2 text-xs text-slate-700 shadow-lg backdrop-blur">
           {toast}
         </div>
       )}
 
-      {/* notes modal */}
       {notesOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/30" onClick={() => setNotesOpen(false)} />
@@ -909,7 +903,6 @@ export default function ChatClient({ mode }: ChatClientProps) {
         </div>
       )}
 
-      {/* Mobile drawer (history) */}
       {mobileDrawerOpen && (
         <div className="fixed inset-0 z-50 md:hidden">
           <div className="absolute inset-0 bg-black/30" onClick={() => setMobileDrawerOpen(false)} />
@@ -954,7 +947,6 @@ export default function ChatClient({ mode }: ChatClientProps) {
 
       <div className="relative z-10 mx-auto max-w-[1100px] px-3 sm:px-6 py-4 sm:py-6">
         <div className="grid grid-cols-1 md:grid-cols-[300px_1fr] gap-4">
-          {/* SIDEBAR */}
           <aside className="hidden md:flex flex-col rounded-[28px] bg-white/90 backdrop-blur-xl border border-slate-100 shadow-[0_18px_50px_rgba(148,163,184,0.28)] overflow-hidden">
             <div className="p-4 border-b border-slate-100 bg-gradient-to-r from-white/90 via-white to-rose-50/60">
               <div className="flex items-center justify-between gap-3">
@@ -987,13 +979,10 @@ export default function ChatClient({ mode }: ChatClientProps) {
             </div>
           </aside>
 
-          {/* MAIN CHAT */}
           <main className="relative rounded-[32px] bg-white/90 backdrop-blur-xl border border-slate-100 shadow-[0_22px_60px_rgba(148,163,184,0.35)] flex flex-col overflow-hidden min-h-[calc(100dvh-2rem)] md:min-h-0">
-            {/* Top bar */}
             <div className="p-4 sm:p-5 border-b border-slate-100 bg-gradient-to-r from-white/90 via-white to-rose-50/60">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-start gap-3">
-                  {/* mobile history button */}
                   <button
                     type="button"
                     onClick={() => setMobileDrawerOpen(true)}
@@ -1028,7 +1017,6 @@ export default function ChatClient({ mode }: ChatClientProps) {
               )}
             </div>
 
-            {/* Chat */}
             <div ref={chatRef} className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 space-y-5">
               {isLoadingHistory ? (
                 <div className="text-sm text-slate-500">Loading…</div>
@@ -1056,7 +1044,7 @@ export default function ChatClient({ mode }: ChatClientProps) {
                       <div
                         className={classNames(
                           "relative group",
-                          "max-w-[96%] sm:max-w-[78%]", // a bit wider on mobile
+                          "max-w-[96%] sm:max-w-[78%]",
                           isUser ? "ml-auto" : "mr-auto"
                         )}
                       >
@@ -1101,10 +1089,8 @@ export default function ChatClient({ mode }: ChatClientProps) {
                         </div>
                       </div>
 
-                      {/* Tools under LAST AI only */}
                       {isLastAi && hasAnyUserMessage && showTools && (
                         <div className={classNames("mr-auto max-w-[96%] sm:max-w-[78%]", "space-y-3")}>
-                          {/* row: Copy / Quote / Save + hide tools */}
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <div className="flex flex-wrap gap-2">
                               <button
@@ -1140,7 +1126,6 @@ export default function ChatClient({ mode }: ChatClientProps) {
                             </button>
                           </div>
 
-                          {/* refine buttons */}
                           <div className="rounded-2xl border border-slate-200 bg-white/70 p-2 shadow-sm">
                             <div className="flex flex-wrap gap-2">
                               {refineButtons.map((b) => (
@@ -1172,9 +1157,7 @@ export default function ChatClient({ mode }: ChatClientProps) {
               )}
             </div>
 
-            {/* INPUT */}
             <div className="border-t border-slate-100 bg-white/80 backdrop-blur-xl p-3 sm:p-5 pb-[calc(env(safe-area-inset-bottom)+12px)]">
-              {/* Row 1: full-width input (big horizontally), wraps into new lines, but NO auto-grow */}
               <div className="rounded-3xl border border-slate-200 bg-white/90 shadow-sm focus-within:ring-2 focus-within:ring-fuchsia-200 focus-within:border-fuchsia-200 transition">
                 <textarea
                   ref={inputRef}
@@ -1182,25 +1165,22 @@ export default function ChatClient({ mode }: ChatClientProps) {
                   rows={2}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => {
-                    // Enter sends; Shift+Enter inserts newline
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
                       sendMessage();
                     }
                   }}
                   placeholder="Type your message…"
-                  className="w-full resize-none bg-transparent px-5 py-4 text-[15px] leading-relaxed outline-none placeholder:text-slate-400"
+                  className="w-full resize-none bg-transparent px-5 py-4 text-[15px] leading-relaxed text-slate-900 outline-none placeholder:text-slate-500 placeholder:opacity-100 disabled:text-slate-500 disabled:placeholder:text-slate-500"
                   style={{
-                    // Big initial space + wrap (horizontal), but keep height stable (no “growing vertically”)
                     minHeight: 64,
                     maxHeight: 96,
                     overflowY: "auto",
                   }}
-                  disabled={isTyping || isLoadingHistory}
+                  disabled={isLoadingHistory}
                 />
               </div>
 
-              {/* Row 2: Notes + Tools (with words on mobile) + Send */}
               <div className="mt-3 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <button
