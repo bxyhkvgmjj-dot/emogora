@@ -251,6 +251,30 @@ export default function TaskClients({
               const isOverdue = !t.done && !!t.due_date && t.due_date < today;
               const isToday = !t.done && t.due_date === today;
 
+              const statusLabel = isDeleting
+                ? "Deleting…"
+                : isBusy
+                ? "Saving…"
+                : t.done
+                ? "Complete"
+                : isOverdue
+                ? "Overdue"
+                : isToday
+                ? "Today"
+                : "Pending";
+
+              const statusClass = isDeleting
+                ? "bg-zinc-100 text-zinc-600"
+                : isBusy
+                ? "bg-zinc-100 text-zinc-600"
+                : t.done
+                ? "bg-emerald-50 text-emerald-700"
+                : isOverdue
+                ? "bg-red-50 text-red-700"
+                : isToday
+                ? "bg-amber-50 text-amber-700"
+                : "bg-zinc-100 text-zinc-600";
+
               return (
                 <motion.div
                   key={t.id}
@@ -269,20 +293,20 @@ export default function TaskClients({
                     scale: { type: "spring", stiffness: 260, damping: 18 },
                   }}
                   className={[
-                    "group relative overflow-hidden rounded-3xl border text-left shadow-sm transition",
+                    "group overflow-hidden rounded-3xl border text-left shadow-sm transition",
                     "bg-white/70 backdrop-blur hover:bg-white/80",
                     isOverdue ? "border-red-200" : "border-white/60",
                     isBusy || isDeleting ? "opacity-80" : "",
                   ].join(" ")}
                 >
-                  <button
-                    onClick={() => toggleTask(t.id)}
-                    disabled={isBusy || isDeleting}
-                    className="block w-full text-left"
-                  >
-                    <div className="flex items-center justify-between gap-4 px-5 py-4">
-                      <div className="flex min-w-0 items-center gap-4">
-                        <div className="relative shrink-0">
+                  <div className="flex items-start justify-between gap-3 px-4 py-4 sm:px-5">
+                    <button
+                      onClick={() => toggleTask(t.id)}
+                      disabled={isBusy || isDeleting}
+                      className="min-w-0 flex-1 text-left"
+                    >
+                      <div className="flex items-start gap-4">
+                        <div className="relative shrink-0 pt-0.5">
                           <motion.div
                             animate={t.done ? { scale: [1, 1.06, 1] } : { scale: 1 }}
                             transition={{ duration: 0.2 }}
@@ -307,10 +331,10 @@ export default function TaskClients({
                           ) : null}
                         </div>
 
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <div
                             className={[
-                              "truncate text-sm font-semibold",
+                              "break-words text-sm font-semibold leading-5 sm:text-[15px]",
                               t.done ? "text-zinc-700 line-through" : "text-zinc-900",
                             ].join(" ")}
                           >
@@ -344,57 +368,52 @@ export default function TaskClients({
                           ) : null}
                         </div>
                       </div>
+                    </button>
 
-                      <div className="flex shrink-0 items-center gap-3">
-                        <div className="text-xs text-zinc-500">
-                          {isDeleting
-                            ? "Deleting…"
-                            : isBusy
-                            ? "Saving…"
-                            : t.done
-                            ? "Done"
+                    <div className="flex shrink-0 items-start gap-2 pl-2">
+                      <div
+                        className={[
+                          "inline-flex min-h-9 items-center rounded-full px-3 py-2 text-xs font-medium whitespace-nowrap",
+                          statusClass,
+                        ].join(" ")}
+                      >
+                        {statusLabel}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setDeleteTarget(t)}
+                        disabled={isDeleting || isBusy}
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-white/90 text-zinc-500 shadow-sm ring-1 ring-black/5 transition hover:bg-red-50 hover:text-red-600"
+                        aria-label={`Delete ${t.title}`}
+                        title="Delete task"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="px-4 pb-4 sm:px-5">
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-100">
+                      <motion.div
+                        className={[
+                          "h-full rounded-full",
+                          t.done
+                            ? "bg-gradient-to-r from-fuchsia-500 via-purple-500 to-indigo-500"
                             : isOverdue
-                            ? "Overdue"
+                            ? "bg-red-400"
                             : isToday
-                            ? "Today"
-                            : "Pending"}
-                        </div>
-                      </div>
+                            ? "bg-amber-400"
+                            : "bg-transparent",
+                        ].join(" ")}
+                        initial={false}
+                        animate={{
+                          width: t.done ? "100%" : isOverdue || isToday ? "35%" : "0%",
+                        }}
+                        transition={{ duration: 0.35 }}
+                      />
                     </div>
-
-                    <div className="px-5 pb-4">
-                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-100">
-                        <motion.div
-                          className={[
-                            "h-full rounded-full",
-                            t.done
-                              ? "bg-gradient-to-r from-fuchsia-500 via-purple-500 to-indigo-500"
-                              : isOverdue
-                              ? "bg-red-400"
-                              : isToday
-                              ? "bg-amber-400"
-                              : "bg-transparent",
-                          ].join(" ")}
-                          initial={false}
-                          animate={{
-                            width: t.done ? "100%" : isOverdue || isToday ? "35%" : "0%",
-                          }}
-                          transition={{ duration: 0.35 }}
-                        />
-                      </div>
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setDeleteTarget(t)}
-                    disabled={isDeleting || isBusy}
-                    className="absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-2xl bg-white/90 text-zinc-500 shadow-sm ring-1 ring-black/5 transition hover:bg-red-50 hover:text-red-600 sm:opacity-0 sm:group-hover:opacity-100"
-                    aria-label={`Delete ${t.title}`}
-                    title="Delete task"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                  </div>
                 </motion.div>
               );
             })}

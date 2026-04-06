@@ -260,6 +260,22 @@ export default function HabitClients({ initialHabits, today }: Props) {
               const currentStreak = h.current_streak ?? 0;
               const bestStreak = h.best_streak ?? 0;
 
+              const statusLabel = isDeleting
+                ? "Deleting…"
+                : isBusy
+                ? "Saving…"
+                : h.done
+                ? "Completed"
+                : "Pending";
+
+              const statusClass = isDeleting
+                ? "bg-zinc-100 text-zinc-600"
+                : isBusy
+                ? "bg-zinc-100 text-zinc-600"
+                : h.done
+                ? "bg-emerald-50 text-emerald-700"
+                : "bg-zinc-100 text-zinc-600";
+
               return (
                 <motion.div
                   key={h.id}
@@ -278,20 +294,20 @@ export default function HabitClients({ initialHabits, today }: Props) {
                     scale: { type: "spring", stiffness: 260, damping: 18 },
                   }}
                   className={[
-                    "group relative overflow-hidden rounded-3xl border shadow-sm transition",
+                    "group overflow-hidden rounded-3xl border shadow-sm transition",
                     "border-white/60 bg-white/70 backdrop-blur",
                     h.done ? "hover:bg-white/85" : "hover:bg-white/80",
                     isBusy || isDeleting ? "opacity-80" : "",
                   ].join(" ")}
                 >
-                  <button
-                    onClick={() => toggleHabit(h.id)}
-                    disabled={isBusy || isDeleting}
-                    className="block w-full text-left"
-                  >
-                    <div className="flex items-center justify-between gap-4 px-5 py-4">
-                      <div className="flex min-w-0 items-center gap-4">
-                        <div className="relative shrink-0">
+                  <div className="flex items-start justify-between gap-3 px-4 py-4 sm:px-5">
+                    <button
+                      onClick={() => toggleHabit(h.id)}
+                      disabled={isBusy || isDeleting}
+                      className="min-w-0 flex-1 text-left"
+                    >
+                      <div className="flex items-start gap-4">
+                        <div className="relative shrink-0 pt-0.5">
                           <motion.div
                             animate={h.done ? { scale: [1, 1.08, 1] } : { scale: 1 }}
                             transition={{ duration: 0.22 }}
@@ -316,10 +332,10 @@ export default function HabitClients({ initialHabits, today }: Props) {
                           ) : null}
                         </div>
 
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <div
                             className={[
-                              "truncate text-sm font-semibold",
+                              "break-words text-sm font-semibold leading-5 sm:text-[15px]",
                               h.done ? "text-zinc-700 line-through" : "text-zinc-900",
                             ].join(" ")}
                           >
@@ -345,42 +361,41 @@ export default function HabitClients({ initialHabits, today }: Props) {
                           </div>
                         </div>
                       </div>
+                    </button>
 
-                      <div className="flex shrink-0 items-center gap-3">
-                        <div className="text-xs text-zinc-500">
-                          {isDeleting
-                            ? "Deleting…"
-                            : isBusy
-                            ? "Saving…"
-                            : h.done
-                            ? "Completed"
-                            : "Pending"}
-                        </div>
+                    <div className="flex shrink-0 items-start gap-2 pl-2">
+                      <div
+                        className={[
+                          "inline-flex min-h-9 items-center rounded-full px-3 py-2 text-xs font-medium whitespace-nowrap",
+                          statusClass,
+                        ].join(" ")}
+                      >
+                        {statusLabel}
                       </div>
-                    </div>
 
-                    <div className="px-5 pb-4">
-                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-100">
-                        <motion.div
-                          className="h-full rounded-full bg-gradient-to-r from-fuchsia-500 via-purple-500 to-indigo-500"
-                          initial={false}
-                          animate={{ width: h.done ? "100%" : "0%" }}
-                          transition={{ duration: 0.35 }}
-                        />
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setDeleteTarget(h)}
+                        disabled={isDeleting || isBusy}
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-white/90 text-zinc-500 shadow-sm ring-1 ring-black/5 transition hover:bg-red-50 hover:text-red-600"
+                        aria-label={`Delete ${h.name}`}
+                        title="Delete habit"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </div>
-                  </button>
+                  </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setDeleteTarget(h)}
-                    disabled={isDeleting || isBusy}
-                    className="absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-2xl bg-white/90 text-zinc-500 shadow-sm ring-1 ring-black/5 transition hover:bg-red-50 hover:text-red-600 sm:opacity-0 sm:group-hover:opacity-100"
-                    aria-label={`Delete ${h.name}`}
-                    title="Delete habit"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                  <div className="px-4 pb-4 sm:px-5">
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-100">
+                      <motion.div
+                        className="h-full rounded-full bg-gradient-to-r from-fuchsia-500 via-purple-500 to-indigo-500"
+                        initial={false}
+                        animate={{ width: h.done ? "100%" : "0%" }}
+                        transition={{ duration: 0.35 }}
+                      />
+                    </div>
+                  </div>
                 </motion.div>
               );
             })}
